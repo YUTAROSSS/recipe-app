@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今日のレシピ - Healthy Menu</title>
+    <title>今日のレシピ - Recruit</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
@@ -29,11 +29,15 @@
     <script type="text/babel" data-type="module" id="main-script">
         import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed, Flame, Trophy } from 'lucide-react';
+        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed, Flame, Trophy, Zap, Eye, Dumbbell, Mail, PenLine, FilePlus } from 'lucide-react';
 
         // ▼▼▼ データ埋め込みポイント ▼▼▼
         const PRELOADED_IMAGES = null; // DATA_INJECTION_POINT
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+        // ★★★ GoogleフォームのURL（反映済み） ★★★
+        const GOOGLE_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; 
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
         // --- レシピデータ ---
         const initialRecipes = [
@@ -405,30 +409,32 @@
             });
         };
 
-        // Helper: Calculate Nutrition Efficiency (Protein / Calories)
-        const getNutrientStats = (recipe) => {
-            if (!recipe.nutrition) return { cal: 9999, pro: 0, score: 0 };
-            
-            // カロリーの数値抽出 (例: "約750 kcal" -> 750)
-            const calMatch = recipe.nutrition.calories.match(/(\d+)/);
-            const cal = calMatch ? parseInt(calMatch[0]) : 9999;
+        // Helper: Vitamin Score Calculation
+        const getVitaminScore = (recipe) => {
+            if (!recipe.nutrition || !recipe.nutrition.nutrients) return 0;
+            const nutrients = recipe.nutrition.nutrients.join(" ");
+            let score = 0;
+            if (nutrients.includes("ビタミン")) score += 10;
+            if (nutrients.includes("ビタミンC")) score += 2;
+            if (nutrients.includes("ビタミンB")) score += 2;
+            if (nutrients.includes("ビタミンA")) score += 2;
+            if (nutrients.includes("ビタミンD")) score += 2;
+            if (nutrients.includes("ビタミンE")) score += 2;
+            if (nutrients.includes("ビタミンK")) score += 2;
+            return score;
+        };
 
-            // タンパク質の数値抽出 (例: "P:26.0g" -> 26.0)
-            const pfc = recipe.nutrition.pfc || "";
-            const proMatch = pfc.match(/P:([\d\.]+)/);
-            const pro = proMatch ? parseFloat(proMatch[1]) : 0;
-
-            // スコア: カロリーあたりのタンパク質 (高いほど優秀 = 筋肉維持しつつ低カロリー)
-            // カロリーが0の場合は除外
-            const score = cal > 0 ? (pro / cal) : 0;
-
-            return { cal, pro, score };
+        // Helper: Protein Amount Calculation
+        const getProteinAmount = (recipe) => {
+            if (!recipe.nutrition || !recipe.nutrition.pfc) return 0;
+            const match = recipe.nutrition.pfc.match(/P:([\d\.]+)/);
+            return match ? parseFloat(match[1]) : 0;
         };
 
         // --- Components ---
 
         // 1. トップページ（目次）コンポーネント
-        const TopPage = ({ recipes, searchTerm, setSearchTerm, onRecipeSelect, onDownload }) => {
+        const TopPage = ({ recipes, searchTerm, setSearchTerm, onRecipeSelect, onDownload, sortType, setSortType, accessCounts }) => {
             
             // 検索 & ソートロジック
             const filteredAndSortedRecipes = useMemo(() => {
@@ -446,19 +452,31 @@
                     });
                 }
 
-                // 2. ヘルシー順 (PFC効率順) にソート
-                // スコアが高い順 (降順)
+                // 2. ソートロジック
                 return [...result].sort((a, b) => {
-                    const statsA = getNutrientStats(a);
-                    const statsB = getNutrientStats(b);
-                    return statsB.score - statsA.score;
+                    if (sortType === 'vitamin') {
+                        const scoreA = getVitaminScore(a);
+                        const scoreB = getVitaminScore(b);
+                        if (scoreA !== scoreB) return scoreB - scoreA;
+                        return a.id - b.id; 
+                    } else if (sortType === 'protein') {
+                        const proA = getProteinAmount(a);
+                        const proB = getProteinAmount(b);
+                        if (proA !== proB) return proB - proA;
+                        return a.id - b.id;
+                    } else if (sortType === 'access') {
+                        const countA = accessCounts[a.id] || 0;
+                        const countB = accessCounts[b.id] || 0;
+                        if (countA !== countB) return countB - countA;
+                        return a.id - b.id;
+                    }
+                    return 0;
                 });
 
-            }, [searchTerm, recipes]);
+            }, [searchTerm, recipes, sortType, accessCounts]);
 
-            // メダル表示用のヘルパー
             const getRankIcon = (index) => {
-                if (searchTerm) return null; // 検索中は順位を表示しない
+                if (searchTerm) return null; 
                 if (index === 0) return <span className="text-xl">🥇</span>;
                 if (index === 1) return <span className="text-xl">🥈</span>;
                 if (index === 2) return <span className="text-xl">🥉</span>;
@@ -467,21 +485,41 @@
 
             return (
                 <div className="max-w-2xl mx-auto px-4 py-8 min-h-screen flex flex-col">
-                    <header className="mb-8 text-center space-y-3">
+                    <header className="mb-6 text-center space-y-3">
                         <div className="flex items-center justify-center gap-3 mb-2">
                             <UtensilsCrossed className="text-amber-500 w-8 h-8" />
                             <h1 className="text-3xl font-bold text-stone-50 tracking-tight">
                                 今日のレシピ
                             </h1>
                         </div>
-                        <p className="text-stone-400 text-sm flex items-center justify-center gap-2">
-                            <Trophy size={14} className="text-amber-400"/>
-                            <span>ヘルシー順（タンパク質密度）で表示中</span>
-                        </p>
+                        
+                        {/* ソート切り替え */}
+                        <div className="flex justify-center">
+                            <div className="inline-flex bg-stone-800 rounded-lg p-1 border border-stone-700 shadow-lg">
+                                <button
+                                    onClick={() => setSortType('vitamin')}
+                                    className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors ${sortType === 'vitamin' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}
+                                >
+                                    <Zap size={14} /> ビタミン順
+                                </button>
+                                <button
+                                    onClick={() => setSortType('protein')}
+                                    className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors ${sortType === 'protein' ? 'bg-red-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}
+                                >
+                                    <Dumbbell size={14} /> タンパク質順
+                                </button>
+                                <button
+                                    onClick={() => setSortType('access')}
+                                    className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors ${sortType === 'access' ? 'bg-blue-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}
+                                >
+                                    <Eye size={14} /> よく使う順
+                                </button>
+                            </div>
+                        </div>
                     </header>
 
                     {/* 検索バー */}
-                    <div className="relative mb-8">
+                    <div className="relative mb-6">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                         <input
                             type="text"
@@ -498,8 +536,24 @@
                             <button
                                 key={recipe.id}
                                 onClick={() => onRecipeSelect(recipe.id)}
-                                className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center gap-4 group transition-all"
+                                className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center gap-4 group transition-all relative overflow-hidden"
                             >
+                                {sortType === 'vitamin' && getVitaminScore(recipe) > 0 && (
+                                    <div className="absolute top-0 right-0 bg-amber-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-amber-500/20 text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                                        <Zap size={10}/> Vitamin Rich
+                                    </div>
+                                )}
+                                {sortType === 'protein' && (
+                                    <div className="absolute top-0 right-0 bg-red-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-red-500/20 text-[10px] text-red-400 font-bold flex items-center gap-1">
+                                        <Dumbbell size={10}/> P: {getProteinAmount(recipe)}g
+                                    </div>
+                                )}
+                                {sortType === 'access' && (accessCounts[recipe.id] || 0) > 0 && (
+                                    <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-blue-500/20 text-[10px] text-blue-400 font-bold flex items-center gap-1">
+                                        <Eye size={10}/> {accessCounts[recipe.id]}回
+                                    </div>
+                                )}
+
                                 {/* ランク */}
                                 <div className="flex-shrink-0 flex items-center justify-center w-8">
                                     {getRankIcon(index)}
@@ -511,9 +565,9 @@
                                             {recipe.title}
                                         </div>
                                         {/* カロリー表示 */}
-                                        <div className="flex items-center gap-1 text-amber-500 bg-amber-950/40 px-2 py-0.5 rounded text-xs font-mono whitespace-nowrap border border-amber-900/30">
+                                        <div className="flex items-center gap-1 text-stone-500 bg-stone-900/40 px-2 py-0.5 rounded text-xs font-mono whitespace-nowrap border border-stone-700/30">
                                             <Flame size={12} />
-                                            {recipe.nutrition ? recipe.nutrition.calories.replace('kcal', '').replace('約', '') : '-'} kcal
+                                            {recipe.nutrition ? recipe.nutrition.calories.replace('kcal', '').replace('約', '') : '-'}
                                         </div>
                                     </div>
                                     <div className="text-stone-400 text-xs truncate">
@@ -529,11 +583,22 @@
                         )}
                     </div>
 
-                    {/* 保存ボタン (Footer) */}
-                    <footer className="mt-8 pt-6 border-t border-stone-800 text-center">
+                    {/* Footer Buttons */}
+                    <footer className="mt-8 pt-6 border-t border-stone-800 flex flex-col items-center gap-4">
+                        {/* Recipe Recruitment Button */}
+                        <a
+                            href={GOOGLE_FORM_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full sm:w-auto px-6 py-3 rounded-full font-bold flex items-center justify-center gap-2 text-sm border border-dashed border-amber-700/50 text-amber-600 hover:bg-amber-950/20 transition-all active:scale-95"
+                        >
+                            <FilePlus size={16} /> 
+                            <span>レシピ募集中</span>
+                        </a>
+
                          <button 
                             onClick={onDownload}
-                            className="bg-amber-900/30 hover:bg-amber-900/50 text-amber-500 px-6 py-3 rounded-full font-bold flex items-center justify-center gap-2 transition-all active:scale-95 text-sm w-full sm:w-auto mx-auto border border-amber-900/50"
+                            className="bg-amber-900/30 hover:bg-amber-900/50 text-amber-500 px-6 py-3 rounded-full font-bold flex items-center justify-center gap-2 transition-all active:scale-95 text-sm w-full sm:w-auto border border-amber-900/50"
                         >
                             <Share2 size={16} /> 
                             <span>このレシピ帳を保存・共有</span>
@@ -545,7 +610,7 @@
 
 
         // 2. レシピカードコンポーネント
-        const RecipeCard = ({ recipe, onImageChange, currentImage, isReadOnly, idPrefix }) => {
+        const RecipeCard = ({ recipe, onImageChange, currentImage, isReadOnly, idPrefix, memo, onMemoChange }) => {
             const [isExpanded, setIsExpanded] = useState(false);
             const fileInputRef = useRef(null);
 
@@ -568,337 +633,4 @@
                 <div className="h-48 sm:h-40 bg-stone-200 relative overflow-hidden border-b border-stone-200 group flex items-center justify-center">
                     {hasImage ? (
                     <img 
-                        src={currentImage} 
-                        alt={recipe.title}
-                        className="w-full h-full object-cover"
-                    />
-                    ) : (
-                    <div className="text-stone-500 text-sm font-medium p-4 text-center flex flex-col items-center gap-2">
-                        <ImageIcon size={24} className="opacity-50"/>
-                        <span>{isReadOnly ? "No Image" : "写真を撮る/選択"}</span>
-                    </div>
-                    )}
-
-                    {!isReadOnly && (
-                        <div 
-                            onClick={() => fileInputRef.current?.click()}
-                            className={`absolute inset-0 flex items-center justify-center cursor-pointer transition-all duration-300
-                                ${hasImage ? 'bg-black/0 hover:bg-black/20' : 'bg-transparent'}
-                            `}
-                        >
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                accept="image/*" 
-                                className="hidden"
-                            />
-                            <button
-                                className={`
-                                    bg-amber-700/90 text-white rounded-full shadow-lg flex items-center gap-2 backdrop-blur-sm transition-transform active:scale-95
-                                    ${hasImage 
-                                        ? 'absolute bottom-3 right-3 p-2 bg-black/50 hover:bg-black/70' 
-                                        : 'px-4 py-2 text-sm font-bold animate-bounce sm:animate-none'}
-                                `}
-                            >
-                                <Camera size={hasImage ? 20 : 18} /> 
-                                {!hasImage && "写真を追加"}
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Content */}
-                <div className="p-5 flex-1 flex flex-col">
-                    <div className="mb-4">
-                    <h2 className="font-bold text-xl text-stone-800 leading-tight mb-1 font-sans">{recipe.title}</h2>
-                    <p className="text-xs text-stone-500 font-medium">{recipe.subtitle}</p>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-stone-600 mb-4 bg-stone-100 p-3 rounded-lg">
-                    <div className="flex items-center gap-1.5">
-                        <Users size={16} />
-                        <span className="text-sm">{recipe.servings}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Clock size={16} />
-                        <span className="text-sm">{recipe.time}</span>
-                    </div>
-                    </div>
-
-                    <p className="text-sm text-stone-600 mb-4 line-clamp-3 leading-relaxed">
-                    {recipe.description}
-                    </p>
-
-                    <div className="mt-auto pt-4 border-t border-stone-200">
-                        <button 
-                            onClick={() => setIsExpanded(!isExpanded)}
-                            className="w-full flex items-center justify-center gap-1 py-2 text-sm font-bold text-amber-800 bg-amber-50/50 rounded-lg hover:bg-amber-100 transition-colors active:bg-amber-200"
-                        >
-                            {isExpanded ? "閉じる" : "レシピを見る"}
-                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Expanded Details */}
-                {isExpanded && (
-                    <div className="px-5 pb-8 bg-stone-50 animate-fadeIn border-t border-stone-100">
-                        <div className="mb-6 mt-4">
-                            <h3 className="font-bold text-base text-stone-800 mb-3 flex items-center gap-2 border-b border-amber-800/20 pb-2">
-                                <ChefHat size={18} className="text-amber-700"/> 材料
-                            </h3>
-                            <ul className="text-sm text-stone-700 space-y-2 ml-1">
-                                {recipe.ingredients.map((ing, idx) => (
-                                    <li key={idx} className="flex justify-between items-center border-b border-stone-200 pb-1 border-dashed last:border-0">
-                                        <span>{ing.name}</span>
-                                        <span className="font-medium text-stone-500">{ing.amount}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        
-                        <div className="mb-6">
-                            <h3 className="font-bold text-base text-stone-800 mb-3 flex items-center gap-2 border-b border-amber-800/20 pb-2">
-                                <Info size={18} className="text-amber-700"/> 作り方
-                            </h3>
-                            <ol className="text-sm text-stone-700 space-y-4 list-decimal list-outside pl-5 marker:text-amber-800 marker:font-bold leading-relaxed">
-                                {recipe.steps.map((step, idx) => (
-                                    <li key={idx}>{step}</li>
-                                ))}
-                            </ol>
-                        </div>
-
-                        {recipe.nutrition && (
-                            <div className="bg-green-50/80 p-4 rounded-xl border border-green-100 shadow-sm">
-                                <h3 className="font-bold text-sm text-green-800 mb-3 flex items-center gap-2 border-b border-green-200 pb-2">
-                                    <Activity size={16} className="text-green-700"/> 栄養・アドバイス
-                                </h3>
-                                
-                                <div className="grid grid-cols-2 gap-2 mb-3">
-                                    <div className="bg-white p-2.5 rounded-lg shadow-sm">
-                                        <div className="text-[10px] text-green-600 font-medium">カロリー</div>
-                                        <div className="text-base font-bold text-stone-800">{recipe.nutrition.calories}</div>
-                                    </div>
-                                    <div className="bg-white p-2.5 rounded-lg shadow-sm">
-                                        <div className="text-[10px] text-green-600 font-medium">PFCバランス</div>
-                                        <div className="text-xs font-medium text-stone-800 leading-tight mt-0.5">{recipe.nutrition.pfc}</div>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                     <div className="text-xs text-green-700 font-bold mb-1">注目栄養素</div>
-                                     <ul className="text-xs text-stone-700 list-disc pl-4 space-y-1">
-                                        {recipe.nutrition.nutrients.map((nut, i) => (
-                                            <li key={i}>{nut}</li>
-                                        ))}
-                                     </ul>
-                                </div>
-
-                                <div className="bg-white/80 p-3 rounded-lg border border-green-100">
-                                    <div className="text-xs text-amber-600 font-bold mb-1">管理栄養士メモ</div>
-                                    <p className="text-xs text-stone-600 leading-relaxed">
-                                        {recipe.nutrition.advice}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-                </div>
-            );
-        };
-
-        // --- Main Application Component ---
-        const App = () => {
-            const [images, setImages] = useState({});
-            const [loading, setLoading] = useState(true);
-            const [searchTerm, setSearchTerm] = useState('');
-            
-            // 画面切り替え用のステート: 'menu' | 'recipes'
-            const [currentView, setCurrentView] = useState('menu'); 
-            const isSharedMode = PRELOADED_IMAGES !== null;
-
-            useEffect(() => {
-                try {
-                    if (isSharedMode) {
-                        setImages(PRELOADED_IMAGES);
-                    } else {
-                        const savedImages = localStorage.getItem('recipeImages');
-                        if (savedImages) {
-                            setImages(JSON.parse(savedImages));
-                        } else {
-                             const initialImageMap = initialRecipes.reduce((acc, recipe) => {
-                                if (recipe.image) acc[recipe.id] = recipe.image;
-                                return acc;
-                            }, {});
-                            setImages(initialImageMap);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Data Load Error:", e);
-                } finally {
-                    setLoading(false);
-                }
-            }, [isSharedMode]);
-
-            const handleImageChange = useCallback(async (id, file) => {
-                try {
-                    const base64Url = await fileToBase64(file);
-                    setImages(prevImages => {
-                        const newImages = { ...prevImages, [id]: base64Url };
-                        if (!isSharedMode) {
-                            localStorage.setItem('recipeImages', JSON.stringify(newImages));
-                        }
-                        return newImages;
-                    });
-                } catch (error) {
-                    console.error("Image save failed:", error);
-                }
-            }, [isSharedMode]);
-
-            const handleDownloadHTML = () => {
-                const scriptEl = document.getElementById('main-script');
-                if (!scriptEl) return;
-                const originalScriptContent = scriptEl.textContent;
-                const imagesJson = JSON.stringify(images);
-                const newScriptContent = originalScriptContent.replace(
-                    'const PRELOADED_IMAGES = null; // DATA_INJECTION_POINT',
-                    `const PRELOADED_IMAGES = ${imagesJson}; // DATA_INJECTION_POINT`
-                );
-
-                const newHTML = `<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今日のレシピ - Shared</title>
-    <script src="https://cdn.tailwindcss.com"><\/script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
-        body { font-family: 'Noto Sans JP', sans-serif; background-color: #33100F; -webkit-tap-highlight-color: transparent; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
-        html { scroll-behavior: smooth; }
-    </style>
-    <script type="importmap">
-        {
-            "imports": {
-                "react": "https://esm.sh/react@18.2.0",
-                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-                "lucide-react": "https://esm.sh/lucide-react@0.263.1"
-            }
-        }
-    <\/script>
-    <script type="module" src="https://esm.sh/run" defer><\/script>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="text/babel" data-type="module" id="main-script">
-        ${newScriptContent}
-    <\/script>
-</body>
-</html>`;
-
-                const blob = new Blob([newHTML], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                const date = new Date().toISOString().slice(0,10);
-                a.download = `recipe_${date}.html`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            };
-
-            // レシピ選択時の処理
-            const handleRecipeSelect = (id) => {
-                setCurrentView('recipes'); // レシピ一覧画面へ切り替え
-                
-                // 描画が終わるのを少し待ってからスクロール
-                setTimeout(() => {
-                    const element = document.getElementById(`recipe-card-${id}`);
-                    if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                }, 100);
-            };
-
-            if (loading) {
-                return (
-                <div className="min-h-screen flex items-center justify-center bg-[#33100F]">
-                    <Loader2 className="animate-spin text-stone-50 w-8 h-8 mr-2" />
-                    <span className="text-stone-50">読み込み中...</span>
-                </div>
-                );
-            }
-
-            // ビューの切り替え
-            if (currentView === 'menu') {
-                return (
-                    <TopPage 
-                        recipes={initialRecipes}
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        onRecipeSelect={handleRecipeSelect}
-                        onDownload={handleDownloadHTML}
-                    />
-                );
-            }
-
-            // レシピ一覧ビュー
-            return (
-                <div className="min-h-screen font-sans bg-[#33100F]">
-                    <div className="max-w-6xl mx-auto px-4 py-8 pb-20">
-                        <header className="mb-6 flex items-center justify-between">
-                            <button 
-                                onClick={() => setCurrentView('menu')}
-                                className="text-stone-300 flex items-center gap-1 hover:text-white transition-colors"
-                            >
-                                <ArrowLeft size={20} />
-                                <span className="text-sm font-bold">メニューに戻る</span>
-                            </button>
-                            <div className="text-stone-50 font-bold">レシピ詳細</div>
-                            <div className="w-8"></div> {/* Spacer */}
-                        </header>
-
-                        <main>
-                            <div className="flex flex-wrap justify-center gap-6 items-start">
-                                {initialRecipes.map(recipe => (
-                                    <RecipeCard 
-                                        key={recipe.id}
-                                        idPrefix={`recipe-card-${recipe.id}`}
-                                        recipe={recipe} 
-                                        currentImage={images[recipe.id] || null} 
-                                        onImageChange={handleImageChange}
-                                        isReadOnly={false}
-                                    />
-                                ))}
-                            </div>
-                        </main>
-
-                        {/* Floating Action Button for Back to Menu */}
-                        <div className="fixed bottom-6 right-6 z-50">
-                            <button 
-                                onClick={() => setCurrentView('menu')}
-                                className="bg-amber-600 hover:bg-amber-700 text-white p-4 rounded-full shadow-xl flex items-center justify-center transition-transform active:scale-95"
-                                aria-label="メニューに戻る"
-                            >
-                                <UtensilsCrossed size={24} />
-                            </button>
-                        </div>
-
-                        <footer className="py-8 text-center text-stone-400 text-xs opacity-60 px-4">
-                            <p>スクロールで他のレシピも見られます</p>
-                        </footer>
-                    </div>
-                </div>
-            );
-        }
-
-        const root = createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                        src={currentImage}
