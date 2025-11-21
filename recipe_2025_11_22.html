@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <!-- スマホで文字が小さくならないように設定 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>今日のレシピ - Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; background-color: #33100F; -webkit-tap-highlight-color: transparent; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        
+        /* スマホでのスクロールを滑らかに */
+        html { scroll-behavior: smooth; }
+        
+        /* 画像アップロードボタンのスタイル調整 */
+        .upload-btn-overlay {
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+            }
+        }
+    </script>
+    <script type="module" src="https://esm.sh/run" defer></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 共有用データ保存スクリプト -->
+    <script type="text/babel" data-type="module" id="main-script">
+        import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera } from 'lucide-react';
+
+        // ▼▼▼ データ埋め込みポイント ▼▼▼
+        const PRELOADED_IMAGES = null; // DATA_INJECTION_POINT
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+        // --- レシピデータ ---
+        const initialRecipes = [
+            { id: 1, title: "夏野菜丼", subtitle: "夏バテ対策・野菜の旨み", servings: "1人分", time: "35分",
+                description: "トマト、オクラ、ミョウガなど夏野菜をたっぷり使用。生姜の効いたタレで夏バテ防止にぴったり。",
+                image: null,
+                ingredients: [
+                { name: "トマト", amount: "100g" }, { name: "大葉", amount: "2枚 (1.5g)" }, { name: "生姜", amount: "5g" }, 
+                { name: "オクラ", amount: "2本 (20g)" }, { name: "ミョウガ", amount: "1/2個 (8g)" }, { name: "塩", amount: "2g (小さじ1/3程度)" }, 
+                { name: "鰹節", amount: "ひとつまみ" }, { name: "白米", amount: "1膳 (150g)" }
+                ],
+                steps: [
+                "トマトは1cm角、大葉は千切り、オクラは薄く小口切り、生姜とミョウガはみじん切りにする。",
+                "野菜と塩を混ぜて、冷蔵庫で30分置いておく。", "ご飯にかけて食べる。"
+                ],
+                nutrition: {
+                calories: "262 kcal",
+                pfc: "P:5.0g / F:0.6g / C:62.3g",
+                nutrients: ["カリウム: 約400mg（むくみ排出）", "ビタミンC: 約15〜20mg（トマト・オクラ由来）", "食物繊維: 2.8g"],
+                advice: "カロリーは低いですがタンパク質が不足気味。温泉卵や納豆を足すと栄養バランスが完璧になります。"
+                }
+            },
+            { id: 2, title: "秋の味覚丼", subtitle: "秋しらすとキノコで味わう", servings: "2人分", time: "20分",
+                description: "秋しらすとキノコの旨みたっぷり。オリーブオイルとレモンでさっぱりと仕上げた季節の一品です。",
+                ingredients: [
+                { name: "トマト", amount: "1個 (150g)" }, { name: "マッシュルーム", amount: "60g" }, { name: "釜揚げしらす", amount: "60g" }, 
+                { name: "板海苔", amount: "1枚" }, { name: "ごはん", amount: "300g" },
+                { name: "塩", amount: "ひとつまみ (1.5g)" }, { name: "醤油", amount: "小さじ2 (12g)" }, { name: "オリーブオイル", amount: "小さじ2 (8g)" }, 
+                { name: "レモン果汁", amount: "小さじ1 (5g)" }, { name: "白胡麻", amount: "小さじ1 (3g)" }
+                ],
+                steps: [
+                "トマトをダイス状にカットする。", "ボウルに入れ、塩を加えて混ぜ10分置いておく。", "マッシュルームをスライスしてレモン果汁を和える。",
+                "トマト、マッシュルーム、醤油、オリーブオイルをボウルに入れ、板海苔1/2枚を細かくちぎって混ぜる。",
+                "さらに10分置いて味をなじませる。", "ご飯に具材をかけ、残りの海苔としらす、胡麻を乗せて完成。"
+                ],
+                nutrition: {
+                calories: "約750 kcal",
+                pfc: "P:26.0g / F:20.0g / C:125.0g",
+                nutrients: ["カルシウム: 約150mg（しらす由来・吸収率良）", "ビタミンD: 約3.0µg（しらす・キノコ由来）"],
+                advice: "ご飯300gのため糖質が非常に高いです。運動後のリカバリー食として最適ですが、減量中はご飯を半分に。"
+                }
+            },
+            { id: 3, title: "鶏ももとトマトのチョコ煮込み", subtitle: "水を一切使わない濃厚な味わい", servings: "2-3人分", time: "50分 (炊飯器)",
+                description: "炊飯器におまかせ。トマトの水分だけで煮込む濃厚シチュー。隠し味のチョコと味噌がポイント。",
+                ingredients: [
+                { name: "トマト", amount: "3個 (500g)" }, { name: "鶏モモ肉", amount: "1枚 (250g)" }, { name: "玉ねぎ", amount: "1/2個 (100g)" }, 
+                { name: "ジャガイモ", amount: "100g" }, { name: "マッシュルーム", amount: "100g" }, { name: "にんにく", amount: "1片 (5g)" }, 
+                { name: "粉チーズ", amount: "小さじ1/2" }, { name: "塩", amount: "小さじ1/2 (3g)" }, { name: "ローリエ", amount: "1枚" }, 
+                { name: "赤ワイン", amount: "30cc" }, { name: "オレンジ", amount: "1/2個 (75g)" }, { name: "チョコレート(85%)", amount: "10g" }
+                ],
+                steps: [
+                "トマトはざく切り、玉ねぎ・マッシュルーム・にんにくはスライス、ジャガイモと鶏肉は一口大に切る。",
+                "炊飯器の内釜に、トマト、たまねぎ、鶏もも肉、にんにく、マッシュルーム、ジャガイモの順で入れる。",
+                "オレンジの皮をピーラーで剥いて入れ, 果汁、塩、赤ワイン、チョコ、ローリエを入れる。",
+                "早炊きモードで加熱する。", "加熱後ローリエを取り出し、チーズを加えて混ぜれば完成。"
+                ],
+                nutrition: {
+                calories: "733 kcal",
+                pfc: "P:52.7g / F:37.2g / C:60.2g",
+                nutrients: ["カリウム: 約1200mg（トマト大量使用のため非常に豊富）", "リコピン: 高含有（加熱で吸収率UP）", "食物繊維: 18.3g"],
+                advice: "カリウムが非常に多く、塩分排出・むくみ解消に最強のメニュー。脂質も高めなので、パンやご飯は控えめに。"
+                }
+            },
+            { id: 4, title: "ポトフ", subtitle: "高栄養密度・体温まる", servings: "4食分", time: "40分",
+                description: "鶏肉とたっぷりの野菜で満足感のある一皿。素材の旨味が溶け出したスープは、寒い季節にぴったりです。",
+                ingredients: [
+                { name: "鶏もも肉", amount: "600g" }, { name: "バター", amount: "20g" }, { name: "ホールトマト", amount: "1缶 (400g)" }, 
+                { name: "さつまいも", amount: "200g" }, { name: "エリンギ・舞茸", amount: "計180g" }, { name: "ブラウンマッシュルーム", amount: "1パック (150g)" }, 
+                { name: "キャベツ", amount: "1/4個 (250g)" }, { name: "フレッシュバジル", amount: "5枚 (2g)" }, { name: "チキンストック", amount: "200cc" }, 
+                { name: "塩", amount: "10g" }, { name: "ブラックペッパー", amount: "10ひねり" }
+                ],
+                steps: [
+                "鶏肉は切らずに全体に胡椒を振る。", "鍋にバターを熱し、鶏肉を塊のまま入れて表面に焼き色をつける。",
+                "さつまいもは皮つきのまま電子レンジで3分加熱する。",
+                "鍋にエリンギ、舞茸、マッシュルームを入れ、ホールトマト、チキンストック、バジルを加える。",
+                "加熱したさつまいもと、適当な大きさに切ったキャベツ、塩を加え、蓋をして30分じっくり煮込む。"
+                ],
+                nutrition: {
+                calories: "約480 kcal",
+                pfc: "P:28.0g / F:32.0g / C:25.0g",
+                nutrients: ["ビタミンC: 約30mg（さつまいもは加熱に強い）", "ビタミンK: 約40µg（キャベツ由来）"],
+                advice: "野菜と肉のバランスが良いです。脂質を抑えたい場合は、鶏肉の皮を取り除くだけで大幅にカロリーカットできます。"
+                }
+            },
+            { id: 5, title: "豚キャベツレンチン蒸し", subtitle: "簡単！やみつき白だし味", servings: "2人分", time: "10分",
+                description: "豚バラとキャベツをタッパーに入れてレンジで加熱するだけの超時短レシピ。白だしとごま油で風味豊かに。",
+                ingredients: [
+                    { name: "キャベツ", amount: "200g" }, { name: "豚バラ", amount: "150g" }, { name: "白だし", amount: "大さじ 1.5" }, 
+                    { name: "ごま油", amount: "大さじ 0.5" }, { name: "にんにく", amount: "1片" }, { name: "片栗粉", amount: "小さじ 1" }, 
+                    { name: "酒", amount: "大さじ 1" }, { name: "こしょう", amount: "少々" }
+                ],
+                steps: [
+                    "タッパーにキャベツをざく切りにし、白だし、ごま油、おろしにんにく、片栗粉、酒、こしょうを入れる。",
+                    "白だしと片栗粉を混ぜてからキャベツの上にかける。", "豚バラをのせる。",
+                    "ふた（ラップ）をかぶせ、600Wで5分20秒加熱する。", "全体をよく混ぜて盛り付け、お好みでラー油やレモン汁をかける。"
+                ],
+                nutrition: {
+                calories: "約350 kcal",
+                pfc: "P:12.0g / F:28.0g / C:8.0g",
+                nutrients: ["ビタミンB1: 約0.6mg（豚肉由来・疲労回復）", "ビタミンC: 約70mg（キャベツたっぷり）"],
+                advice: "「疲労回復」に特化した組み合わせ。ご飯と一緒に食べてB1の効果でエネルギーチャージしましょう。"
+                }
+            },
+            { id: 6, title: "りゅうじのナポリタン", subtitle: "ポークチャップ風の濃厚ソース", servings: "1人分", time: "25分",
+                description: "ケチャップを煮詰めて作る、昔ながらのポークチャップ風濃厚ナポリタン。",
+                ingredients: [
+                    { name: "パスタ", amount: "100g" }, { name: "マッシュルーム", amount: "50g" }, { name: "ウインナー", amount: "50g" }, 
+                    { name: "玉ねぎ", amount: "50g (1/3個)" }, { name: "ピーマン", amount: "1/3個" }, { name: "ケチャップ", amount: "大さじ 4" }, 
+                    { name: "バター", amount: "10g" }, { name: "サラダ油", amount: "小さじ 2" }, { name: "塩", amount: "適量" }, 
+                    { name: "粉チーズ、パセリ", amount: "適量" }, { name: "ウスターソース", amount: "小さじ 1 (ソース用)" }
+                ],
+                steps: [
+                    "ウインナーは斜め切り、玉ねぎは薄切り、マッシュルームは薄切り、ピーマンは細切りにする。",
+                    "フライパンにサラダ油を入れて加熱。ウインナー、玉ねぎを炒める。",
+                    "ケチャップ大さじ4を入れて煮つめ、底にくっつく程度まで炒める。マッシュルームも加え炒める。",
+                    "別のソース（ケチャップ大さじ3、ウスター小さじ1など）で茹でたパスタをからめて炒める。",
+                    "器に盛り付け、バターを乗せて粉チーズ、パセリを振る。"
+                ],
+                nutrition: {
+                calories: "約750 kcal",
+                pfc: "P:25.0g / F:35.0g / C:85.0g",
+                nutrients: ["ナトリウム: 2.5g以上（塩分高め）"],
+                advice: "典型的な高カロリー・高塩分メニュー。前後の食事で野菜を多めに摂り、塩分を控える調整が必要です。"
+                }
+            },
+            { id: 7, title: "ゆかりバターパスタ", subtitle: "簡単！和風あっさり味", servings: "2人分", time: "15分",
+                description: "ゆかりとバター、醤油で仕上げるシンプルな和風パスタ。茹で汁を飛ばしながら煮詰めるのがポイント。",
+                ingredients: [
+                    { name: "パスタ", amount: "200g" }, { name: "バター", amount: "20g" }, { name: "水", amount: "530cc" }, 
+                    { name: "醤油", amount: "大さじ 1" }, { name: "味の素", amount: "4振り" }, { name: "にんにく (おろし)", amount: "1片" }, 
+                    { name: "ゆかり", amount: "大さじ 1 小さじ 2" }
+                ],
+                steps: [
+                    "フライパンに水、醤油、味の素、おろしにんにくを入れて沸かす。",
+                    "パスタを入れ、水分が少なくなり煮汁が少し残るくらいまで7分間水を飛ばしながら煮込む。",
+                    "火を止め、バターを入れてあえる。", "ゆかりを混ぜて完成。"
+                ],
+                nutrition: {
+                calories: "約580 kcal",
+                pfc: "P:14.0g / F:18.0g / C:82.0g",
+                nutrients: ["ナトリウム: ゆかり・醤油で塩分多め"],
+                advice: "ほぼ炭水化物のみです。ツナ缶やサラダチキンを混ぜてタンパク質を補強しましょう。"
+                }
+            },
+            { id: 8, title: "レタスサラダ", subtitle: "めんつゆベースのやみつきドレッシング", servings: "2人分", time: "5分",
+                description: "めんつゆとごま油ベースで簡単に作れる、レタスの消費に最適なやみつきサラダ。",
+                ingredients: [
+                    { name: "レタス", amount: "150g" }, { name: "めんつゆ", amount: "大さじ 1" }, { name: "砂糖", amount: "大さじ 1" }, 
+                    { name: "ごま油", amount: "大さじ 1" }, { name: "のり", amount: "適量" }, { name: "白ごま", amount: "適量" }, { name: "塩", amount: "適量" }
+                ],
+                steps: [
+                    "レタスを手でちぎる。", "めんつゆ、砂糖、ごま油、塩をボウルに入れる。",
+                    "よく混ぜてレタスにかけ、水気を切る。", "のりや白ごまを振って完成。"
+                ],
+                nutrition: {
+                calories: "約80 kcal",
+                pfc: "P:1.5g / F:6.0g / C:4.0g",
+                nutrients: ["ビタミンK: 約40µg", "葉酸: 約50µg"],
+                advice: "カロリーはドレッシング（ごま油）由来が主。メイン料理の前に食べることで血糖値の上昇を抑えられます。"
+                }
+            },
+            { id: 9, title: "りゅうじのカルボナーラ", subtitle: "水とチーズで煮込む濃厚パスタ", servings: "1人分", time: "20分",
+                description: "水と少量のチーズで煮込んで作る、濃厚でクリーミーなワンパンカルボナーラ。",
+                ingredients: [
+                    { name: "にんにく", amount: "1片" }, { name: "ベーコン", amount: "35g" }, { name: "オリーブオイル", amount: "大さじ 1" }, 
+                    { name: "水", amount: "350cc" }, { name: "塩", amount: "小さじ 1/3" }, { name: "味の素", amount: "4振り" }, 
+                    { name: "1.6mm パスタ", amount: "100g" }, { name: "チューブチーズ", amount: "40g" }, { name: "卵", amount: "1個" }, 
+                    { name: "黒こしょう", amount: "適量" }
+                ],
+                steps: [
+                    "にんにくをみじん切り、ベーコンを細切りにする。卵をよく混ぜる。",
+                    "フライパンでにんにくとベーコンを炒める。", "水、塩、味の素を入れる。",
+                    "沸騰したらパスタと具材を一緒に入れ、水分をとばしながら茹でる。",
+                    "火を止め、チューブチーズを入れ、卵を加えて手早く混ぜる。黒こしょうを振って完成。"
+                ],
+                nutrition: {
+                calories: "約780 kcal",
+                pfc: "P:32.0g / F:38.0g / C:75.0g",
+                nutrients: ["カルシウム: チーズ由来", "セレン: 卵由来（抗酸化作用）"],
+                advice: "濃厚で腹持ちが良いですが脂質が高め。ランチに食べて、午後の活動エネルギーにするのがおすすめです。"
+                }
+            },
+            { id: 11, title: "やみつき鶏", subtitle: "ピリ辛甘辛ダレでご飯が進む", servings: "2人分", time: "15分",
+                description: "タバスコの隠し味と甘辛いタレが食欲をそそる、ご飯にもおつまみにも最適な鶏もも肉料理。",
+                ingredients: [
+                    { name: "もも肉", amount: "320g" }, { name: "片栗粉", amount: "大さじ 1.5" }, { name: "バター", amount: "15g" }, 
+                    { name: "砂糖", amount: "大さじ 1" }, { name: "ケチャップ", amount: "大さじ 1" }, { name: "醤油", amount: "大さじ 1" }, 
+                    { name: "酒", amount: "大さじ 1" }, { name: "にんにく (おろし)", amount: "1片" }, { name: "味の素", amount: "3振り" }, 
+                    { name: "タバスコ", amount: "小さじ 1" }, { name: "塩、胡椒", amount: "少々" }
+                ],
+                steps: [
+                    "鶏もも肉を一口大に切って下味（塩胡椒）をつけ、片栗粉をまぶす。",
+                    "タレ（片栗粉、醤油、酒、ケチャップ、にんにく、味の素、タバスコ）を混ぜて作っておく。",
+                    "フライパンにバターを入れて温め、肉を火が通るまで焼き、タレを入れて絡める。（オリーブオイルでも可）"
+                ],
+                nutrition: {
+                calories: "約550 kcal",
+                pfc: "P:30.0g / F:35.0g / C:25.0g",
+                nutrients: ["ナイアシン: 約7mg（代謝促進）", "亜鉛: 約2.5mg"],
+                advice: "タンパク質は十分ですが、野菜がありません。「8. レタスサラダ」などの副菜と一緒に食べましょう。"
+                }
+            },
+            { id: 12, title: "豚ミンチチャーハン", subtitle: "ネギ油とオイスターソースが決め手", servings: "2人分", time: "20分",
+                description: "ネギ油と豚ミンチ、オイスターソースの旨味を効かせた、プロ級の本格チャーハン。",
+                ingredients: [
+                    { name: "ご飯", amount: "200g" }, { name: "豚こま (またはミンチ)", amount: "50g" }, { name: "長ネギ (みじん切り)", amount: "25g" }, 
+                    { name: "長ネギ (青い部分)", amount: "15g" }, { name: "卵", amount: "2個" }, { name: "油 (ラード)", amount: "大さじ 2" }, 
+                    { name: "醤油", amount: "小さじ 1" }, { name: "オイスターソース", amount: "小さじ 1" }, { name: "塩", amount: "小さじ 1/3" }, 
+                    { name: "ハイミー", amount: "8振り" }, { name: "黒胡椒", amount: "適量" }, { name: "酒", amount: "大さじ 1" }
+                ],
+                steps: [
+                    "油大さじ2で青ネギを揚げてネギ油を作る。",
+                    "ご飯にネギ油、豚ミンチ、醤油、オイスターソースを混ぜて味をしみこませておく。",
+                    "具材を炒め、熱くなったら生姜、長ネギ青い部分も入れる。具を端に寄せて、溶き卵、ご飯の順に入れて混ぜる。",
+                    "パラパラしてきたら、塩、味の素、黒胡椒、長ネギ白部みじん切りを入れ、酒を入れてアルコールを飛ばして完成。"
+                ],
+                nutrition: {
+                calories: "約750 kcal",
+                pfc: "P:22.0g / F:30.0g / C:95.0g",
+                nutrients: ["アリシン: ネギ由来（豚肉のビタミンB1吸収率UP）"],
+                advice: "豚肉×ネギ×卵でスタミナ満点ですが、糖質過多になりがち。スープで水分とお腹を満たすのが吉。"
+                }
+            },
+            { id: 13, title: "卵丼", subtitle: "鰹節と玉ねぎで簡単に煮込む", servings: "1人分", time: "15分",
+                description: "玉ねぎと鰹節の出汁が効いた、シンプルで優しい味わいの卵丼。",
+                ingredients: [
+                    { name: "ご飯", amount: "200g" }, { name: "鰹節粉", amount: "3g" }, { name: "玉ねぎ", amount: "1/4個 (60g)" }, 
+                    { name: "醤油", amount: "大さじ 1" }, { name: "みりん", amount: "大さじ 2" }, { name: "水", amount: "大さじ 2" }, 
+                    { name: "味の素", amount: "3振り" }, { name: "卵", amount: "2個" }
+                ],
+                steps: [
+                    "鍋に玉ねぎ、醤油、みりん、水、鰹節、味の素を入れて弱火にかける。",
+                    "別の皿で卵を溶き、レンジで半煮にする。（600Wで約50秒ずつ）",
+                    "加熱した卵を鍋に戻し、煮る。"
+                ],
+                nutrition: {
+                calories: "約550 kcal",
+                pfc: "P:18.0g / F:12.0g / C:90.0g",
+                nutrients: ["ビオチン: 卵由来", "硫化アリル: 玉ねぎ由来（血液サラサラ）"],
+                advice: "消化に良く優しいメニューですが、早食いになりがち。よく噛んで食べることを意識してください。"
+                }
+            },
+            { id: 14, title: "豚大根", subtitle: "豚ミンチの旨み煮込み", servings: "4人分", time: "50分 (炊飯器)",
+                description: "豚ミンチと大根を炊飯器で煮込む簡単レシピ。味噌と生姜が効いたつゆだくの濃厚な味わい。",
+                ingredients: [
+                    { name: "大根", amount: "800g" }, { name: "豚ミンチ", amount: "200g" }, { name: "にんにく (みじん)", amount: "1片 5g" }, 
+                    { name: "しょうが (みじん)", amount: "1片 15g" }, { name: "長ネギ (みじん)", amount: "20g" }, { name: "味噌", amount: "大さじ 1/2" }, 
+                    { name: "醤油", amount: "大さじ 3" }, { name: "酒", amount: "大さじ 2" }, { name: "はちみつ", amount: "大さじ 1" }, 
+                    { name: "チキンストック", amount: "100cc" }
+                ],
+                steps: [
+                    "大根を2cm厚さの銀杏切りにする。",
+                    "ボウルに豚ミンチ、にんにく、しょうが、長ネギ、味噌、醤油、酒、はちみつを全て入れてよく混ぜる。",
+                    "1と2を炊飯器の内釜に入れて和え、チキンストックを入れる。", "早炊きで加熱する。",
+                    "炊けたら上下ひっくり返すように混ぜ、保温のまま10分おいて完成。"
+                ],
+                nutrition: {
+                calories: "約380 kcal",
+                pfc: "P:15.0g / F:25.0g / C:20.0g",
+                nutrients: ["ビタミンC: 大根由来（煮汁に溶出）", "カリウム: 煮汁に溶出"],
+                advice: "栄養素が煮汁に溶け出しています。塩分に気をつけつつスープも適度に飲むと栄養を無駄なく摂取できます。"
+                }
+            },
+            { id: 15, title: "だし巻き卵（甘口・関東風）", subtitle: "みりん砂糖で甘めに仕上げる", servings: "1人分", time: "10分",
+                description: "みりんや砂糖を加えて甘めに仕上げる、お弁当にもぴったりのふっくらしただし巻き卵です。",
+                ingredients: [
+                    { name: "卵", amount: "2個" }, { name: "水", amount: "50cc" }, { name: "塩", amount: "小さじ 1/4" }, 
+                    { name: "みりん", amount: "小さじ 1.5" }, { name: "砂糖", amount: "ひとつまみ" }, { name: "白だし", amount: "大さじ 1" }
+                ],
+                steps: [
+                    "全ての材料を混ぜ合わせ、卵焼き液を作る。",
+                    "油を多めにひいた卵焼き器に、強めの中火で数回に分けて流し入れながら巻いていく。"
+                ],
+                nutrition: {
+                calories: "230〜280 kcal",
+                pfc: "P:13〜19g / F:15〜20g / C:2〜8g",
+                nutrients: ["ビタミンD: 約3.0µg（卵黄由来）", "セレン: 抗酸化作用"],
+                advice: "「完全栄養食」の卵を手軽に摂れます。ご飯のおかずにするなら、甘口よりも白だし（関西風）の方が糖質を抑えられます。"
+                }
+            },
+            { id: 16, title: "だし巻き卵（白だし・関西風）", subtitle: "出汁の風味を効かせた塩味", servings: "1人分", time: "10分",
+                description: "白だしと鰹節粉を使い、出汁の風味を強調した、上品な味わいの塩味のだし巻き卵です。",
+                ingredients: [
+                    { name: "卵", amount: "3個" }, { name: "水", amount: "110cc" }, { name: "醤油", amount: "小さじ 1/3" }, 
+                    { name: "味の素", amount: "4振り" }, { name: "砂糖", amount: "2つまみ" }, { name: "鰹節粉", amount: "3g" }
+                ],
+                steps: [
+                    "全ての材料を混ぜ合わせ、卵焼き液を作る。",
+                    "油を多めにひいた卵焼き器に、強めの中火で数回に分けて流し入れながら巻いていく。"
+                ],
+                nutrition: {
+                calories: "230〜280 kcal",
+                pfc: "P:13〜19g / F:15〜20g / C:2〜8g",
+                nutrients: ["ビタミンD: 約3.0µg（卵黄由来）", "セレン: 抗酸化作用"],
+                advice: "「完全栄養食」の卵を手軽に摂れます。ご飯のおかずにするなら、甘口よりも白だし（関西風）の方が糖質を抑えられます。"
+                }
+            },
+            { id: 17, title: "豆腐とブロッコリーの揉み込みサラダ", subtitle: "超簡単！植物性タンパク質が豊富", servings: "2人分", time: "15分",
+                description: "豆腐の柔らかさと生ブロッコリーの歯ごたえが楽しいサラダ。ネギ塩オイルで和えることで満足度を上げます。",
+                ingredients: [
+                    { name: "豆腐", amount: "100g" }, { name: "ブロッコリー", amount: "100g" }, { name: "ネギ塩オイル", amount: "お好み" },
+                    { name: "玉ねぎ", amount: "1/4個" }, { name: "にんにく", amount: "1片" }, { name: "オリーブオイル", amount: "50cc" },
+                    { name: "塩", amount: "小さじ 1" }, { name: "ブラックペッパー", amount: "お好み" }
+                ],
+                steps: [
+                    "玉ねぎ、にんにくをみじん切りにし、電子レンジ600Wで1分半加熱する。",
+                    "1にオリーブオイル、塩を入れ混ぜてネギ塩オイルを作る。",
+                    "ブロッコリーを一口大に切り、豆腐とネギ塩オイルの1/3量を袋に入れ揉み込む。",
+                    "皿に盛り付け、ネギ塩オイルをお好みで少しのせ、ブラックペッパーをかけて完成。"
+                ],
+                nutrition: {
+                calories: "約280 kcal",
+                pfc: "P:9.0g / F:24.0g / C:5.0g",
+                nutrients: ["ビタミンC: 約120mg（これ1食で1日分クリア）", "マグネシウム: 豆腐由来"],
+                advice: "ビタミンC補給に最強の副菜。オイルと一緒に摂ることでビタミンA・Eの吸収率も上がります。"
+                }
+            },
+            { id: 18, title: "サバ缶とほうれん草の卵とじ", subtitle: "カロリー過多な食生活をリセット", servings: "2人分", time: "15分",
+                description: "サバ缶とほうれん草を卵で優しくとじるヘルシーな一品。正月太りなど、食生活をリセットしたい時に最適。",
+                ingredients: [
+                    { name: "サバ缶", amount: "1缶" }, { name: "冷凍ほうれん草", amount: "100g" }, { name: "卵", amount: "2個" }, 
+                    { name: "水", amount: "50cc" }, { name: "出汁パック", amount: "1袋" }, { name: "みりん", amount: "大さじ 1" }, 
+                    { name: "醤油", amount: "大さじ 1" }
+                ],
+                steps: [
+                    "卵を溶く。",
+                    "底の広めの鍋に水、出汁パックの中身、みりん、サバ缶の水分を入れて中火にかける。",
+                    "沸騰したら醤油、冷凍ほうれん草を加え、ほうれん草が溶けたら鯖の身をほぐしながら入れる。",
+                    "溶き卵を半量回し入れ、卵が固まってきたら残りの半量を加えて火を止める。",
+                    "1〜2分置いて卵が半熟になったら完成。"
+                ],
+                nutrition: {
+                calories: "約473 kcal",
+                pfc: "P:47.7g / F:28.0g / C:5.0g",
+                nutrients: ["ビタミンD: 10µg以上（非常に多い・免疫力UP）", "DHA/EPA: 1500mg以上（脳・血管の健康）", "鉄分: ほうれん草由来"],
+                advice: "高タンパク・低糖質・良質な脂質が揃った、ダイエットや筋トレ中に最もおすすめできるメニューです。"
+                }
+            },
+        ];
+
+        // Helper: Base64 convert
+        const fileToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (error) => reject(error);
+            });
+        };
+
+        // --- RecipeCard Component ---
+        const RecipeCard = ({ recipe, onImageChange, currentImage, isReadOnly }) => {
+            const [isExpanded, setIsExpanded] = useState(false);
+            const fileInputRef = useRef(null);
+
+            const handleFileChange = (event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                onImageChange(recipe.id, file); 
+                }
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            };
+
+            // 画像があるかどうか判定
+            const hasImage = currentImage && (currentImage.startsWith('data:image') || currentImage.startsWith('uploaded:'));
+
+            return (
+                // モバイル: w-full (画面いっぱい), PC: w-72 (固定幅)
+                <div className="bg-stone-50 rounded-xl overflow-hidden shadow-xl w-full max-w-sm sm:max-w-none sm:w-72 flex flex-col transition-transform hover:scale-[1.02] duration-300 mx-auto">
+                
+                {/* Photo Header with Image Uploader */}
+                <div className="h-48 sm:h-40 bg-stone-200 relative overflow-hidden border-b border-stone-200 group flex items-center justify-center">
+                    {hasImage ? (
+                    <img 
+                        src={currentImage} 
+                        alt={recipe.title}
+                        className="w-full h-full object-cover"
+                    />
+                    ) : (
+                    <div className="text-stone-500 text-sm font-medium p-4 text-center flex flex-col items-center gap-2">
+                        <ImageIcon size={24} className="opacity-50"/>
+                        <span>{isReadOnly ? "No Image" : "写真を撮る/選択"}</span>
+                    </div>
+                    )}
+
+                    {/* Image Uploader Overlay (スマホ対応: 常にクリック可能領域を確保) */}
+                    {!isReadOnly && (
+                        <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`absolute inset-0 flex items-center justify-center cursor-pointer transition-all duration-300
+                                ${hasImage ? 'bg-black/0 hover:bg-black/20' : 'bg-transparent'}
+                            `}
+                        >
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept="image/*" /* スマホでカメラを起動しやすくする */
+                                className="hidden"
+                            />
+                            
+                            {/* カメラボタン: 画像がないときは中央、あるときは右下に控えめに表示 */}
+                            <button
+                                className={`
+                                    bg-amber-700/90 text-white rounded-full shadow-lg flex items-center gap-2 backdrop-blur-sm transition-transform active:scale-95
+                                    ${hasImage 
+                                        ? 'absolute bottom-3 right-3 p-2 bg-black/50 hover:bg-black/70' 
+                                        : 'px-4 py-2 text-sm font-bold animate-bounce sm:animate-none'}
+                                `}
+                            >
+                                <Camera size={hasImage ? 20 : 18} /> 
+                                {!hasImage && "写真を追加"}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Content */}
+                <div className="p-5 flex-1 flex flex-col">
+                    <div className="mb-4">
+                    <h2 className="font-bold text-xl text-stone-800 leading-tight mb-1 font-sans">{recipe.title}</h2>
+                    <p className="text-xs text-stone-500 font-medium">{recipe.subtitle}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-stone-600 mb-4 bg-stone-100 p-3 rounded-lg">
+                    <div className="flex items-center gap-1.5">
+                        <Users size={16} />
+                        <span className="text-sm">{recipe.servings}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <Clock size={16} />
+                        <span className="text-sm">{recipe.time}</span>
+                    </div>
+                    </div>
+
+                    <p className="text-sm text-stone-600 mb-4 line-clamp-3 leading-relaxed">
+                    {recipe.description}
+                    </p>
+
+                    <div className="mt-auto pt-4 border-t border-stone-200">
+                        <button 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="w-full flex items-center justify-center gap-1 py-2 text-sm font-bold text-amber-800 bg-amber-50/50 rounded-lg hover:bg-amber-100 transition-colors active:bg-amber-200"
+                        >
+                            {isExpanded ? "閉じる" : "レシピを見る"}
+                            {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                    <div className="px-5 pb-8 bg-stone-50 animate-fadeIn border-t border-stone-100">
+                        {/* Ingredients */}
+                        <div className="mb-6 mt-4">
+                            <h3 className="font-bold text-base text-stone-800 mb-3 flex items-center gap-2 border-b border-amber-800/20 pb-2">
+                                <ChefHat size={18} className="text-amber-700"/> 材料
+                            </h3>
+                            <ul className="text-sm text-stone-700 space-y-2 ml-1">
+                                {recipe.ingredients.map((ing, idx) => (
+                                    <li key={idx} className="flex justify-between items-center border-b border-stone-200 pb-1 border-dashed last:border-0">
+                                        <span>{ing.name}</span>
+                                        <span className="font-medium text-stone-500">{ing.amount}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        
+                        {/* Steps */}
+                        <div className="mb-6">
+                            <h3 className="font-bold text-base text-stone-800 mb-3 flex items-center gap-2 border-b border-amber-800/20 pb-2">
+                                <Info size={18} className="text-amber-700"/> 作り方
+                            </h3>
+                            <ol className="text-sm text-stone-700 space-y-4 list-decimal list-outside pl-5 marker:text-amber-800 marker:font-bold leading-relaxed">
+                                {recipe.steps.map((step, idx) => (
+                                    <li key={idx}>{step}</li>
+                                ))}
+                            </ol>
+                        </div>
+
+                        {/* Nutrition & Advice */}
+                        {recipe.nutrition && (
+                            <div className="bg-green-50/80 p-4 rounded-xl border border-green-100 shadow-sm">
+                                <h3 className="font-bold text-sm text-green-800 mb-3 flex items-center gap-2 border-b border-green-200 pb-2">
+                                    <Activity size={16} className="text-green-700"/> 栄養・アドバイス
+                                </h3>
+                                
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                    <div className="bg-white p-2.5 rounded-lg shadow-sm">
+                                        <div className="text-[10px] text-green-600 font-medium">カロリー</div>
+                                        <div className="text-base font-bold text-stone-800">{recipe.nutrition.calories}</div>
+                                    </div>
+                                    <div className="bg-white p-2.5 rounded-lg shadow-sm">
+                                        <div className="text-[10px] text-green-600 font-medium">PFCバランス</div>
+                                        <div className="text-xs font-medium text-stone-800 leading-tight mt-0.5">{recipe.nutrition.pfc}</div>
+                                    </div>
+                                </div>
+
+                                <div className="mb-4">
+                                     <div className="text-xs text-green-700 font-bold mb-1">注目栄養素</div>
+                                     <ul className="text-xs text-stone-700 list-disc pl-4 space-y-1">
+                                        {recipe.nutrition.nutrients.map((nut, i) => (
+                                            <li key={i}>{nut}</li>
+                                        ))}
+                                     </ul>
+                                </div>
+
+                                <div className="bg-white/80 p-3 rounded-lg border border-green-100">
+                                    <div className="text-xs text-amber-600 font-bold mb-1">管理栄養士メモ</div>
+                                    <p className="text-xs text-stone-600 leading-relaxed">
+                                        {recipe.nutrition.advice}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+                </div>
+            );
+        };
+
+        // --- Main Application Component ---
+        const App = () => {
+            const [images, setImages] = useState({});
+            const [loading, setLoading] = useState(true);
+            const [searchTerm, setSearchTerm] = useState('');
+            const isSharedMode = PRELOADED_IMAGES !== null;
+
+            useEffect(() => {
+                try {
+                    if (isSharedMode) {
+                        setImages(PRELOADED_IMAGES);
+                    } else {
+                        const savedImages = localStorage.getItem('recipeImages');
+                        if (savedImages) {
+                            setImages(JSON.parse(savedImages));
+                        } else {
+                             const initialImageMap = initialRecipes.reduce((acc, recipe) => {
+                                if (recipe.image) acc[recipe.id] = recipe.image;
+                                return acc;
+                            }, {});
+                            setImages(initialImageMap);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Data Load Error:", e);
+                } finally {
+                    setLoading(false);
+                }
+            }, [isSharedMode]);
+
+            const handleImageChange = useCallback(async (id, file) => {
+                try {
+                    const base64Url = await fileToBase64(file);
+                    setImages(prevImages => {
+                        const newImages = { ...prevImages, [id]: base64Url };
+                        if (!isSharedMode) {
+                            localStorage.setItem('recipeImages', JSON.stringify(newImages));
+                        }
+                        return newImages;
+                    });
+                } catch (error) {
+                    console.error("Image save failed:", error);
+                }
+            }, [isSharedMode]);
+
+            const handleDownloadHTML = () => {
+                const scriptEl = document.getElementById('main-script');
+                if (!scriptEl) return;
+                const originalScriptContent = scriptEl.textContent;
+                const imagesJson = JSON.stringify(images);
+                const newScriptContent = originalScriptContent.replace(
+                    'const PRELOADED_IMAGES = null; // DATA_INJECTION_POINT',
+                    `const PRELOADED_IMAGES = ${imagesJson}; // DATA_INJECTION_POINT`
+                );
+
+                // スマホ用のViewPortタグを含んだHTMLを生成
+                const newHTML = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>今日のレシピ - Shared</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; background-color: #33100F; -webkit-tap-highlight-color: transparent; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+        html { scroll-behavior: smooth; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+            }
+        }
+    <\/script>
+    <script type="module" src="https://esm.sh/run" defer><\/script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel" data-type="module" id="main-script">
+        ${newScriptContent}
+    <\/script>
+</body>
+</html>`;
+
+                const blob = new Blob([newHTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // ファイル名に日付を入れると管理しやすい
+                const date = new Date().toISOString().slice(0,10);
+                a.download = `recipe_${date}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const filteredRecipes = useMemo(() => {
+                if (!searchTerm) return initialRecipes;
+                const lowerCaseSearch = searchTerm.toLowerCase();
+                return initialRecipes.filter(recipe => {
+                    const searchableText = [
+                        recipe.title, recipe.subtitle, recipe.description,
+                        ...recipe.ingredients.map(ing => ing.name)
+                    ].join(' ').toLowerCase();
+                    return searchableText.includes(lowerCaseSearch);
+                });
+            }, [searchTerm]);
+
+            if (loading) {
+                return (
+                <div className="min-h-screen flex items-center justify-center bg-[#33100F]">
+                    <Loader2 className="animate-spin text-stone-50 w-8 h-8 mr-2" />
+                    <span className="text-stone-50">読み込み中...</span>
+                </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen font-sans bg-[#33100F]">
+                    <div className="max-w-6xl mx-auto px-4 py-8 pb-20">
+                        <header className="mb-8 flex flex-col gap-6">
+                            <div className="text-center md:text-left space-y-2">
+                                <h1 className="text-3xl sm:text-4xl font-bold text-stone-50 tracking-tight">
+                                    今日のレシピ
+                                </h1>
+                                <p className="text-stone-300 opacity-80 text-xs sm:text-sm">
+                                    {isSharedMode ? "共有されたレシピを表示中" : "編集データはブラウザに保存されます"}
+                                </p>
+                            </div>
+
+                            {/* 検索バーとダウンロードボタン */}
+                            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+                                <div className="relative flex-1 max-w-md">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="検索 (例: 豚バラ, 大根)"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-3 bg-stone-100 rounded-xl shadow-inner focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-stone-800 text-base"
+                                    />
+                                </div>
+
+                                <button 
+                                    onClick={handleDownloadHTML}
+                                    className="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 text-sm sm:w-auto w-full"
+                                >
+                                    <Share2 size={18} /> 
+                                    <span>データをファイルに保存</span>
+                                </button>
+                            </div>
+                        </header>
+
+                        <main>
+                            <div className="flex flex-wrap justify-center gap-6 items-start">
+                                {filteredRecipes.map(recipe => (
+                                    <RecipeCard 
+                                        key={recipe.id} 
+                                        recipe={recipe} 
+                                        currentImage={images[recipe.id] || null} 
+                                        onImageChange={handleImageChange}
+                                        isReadOnly={false}
+                                    />
+                                ))}
+                            </div>
+                        </main>
+                    </div>
+
+                    <footer className="py-8 text-center text-stone-400 text-xs opacity-60 px-4">
+                        <p className="mb-1">{isSharedMode ? "共有モード" : "ローカル編集モード"}</p>
+                        <p>スマホで保存する場合：「ファイルに保存」を選択し、ファイルアプリから開いてください。</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
