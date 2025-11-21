@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>今日のレシピ - Menu</title>
+    <title>今日のレシピ - Healthy Menu</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
@@ -29,13 +29,13 @@
     <script type="text/babel" data-type="module" id="main-script">
         import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed } from 'lucide-react';
+        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed, Flame, Trophy } from 'lucide-react';
 
         // ▼▼▼ データ埋め込みポイント ▼▼▼
         const PRELOADED_IMAGES = null; // DATA_INJECTION_POINT
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-        // --- レシピデータ (ID: 1〜19) ---
+        // --- レシピデータ ---
         const initialRecipes = [
             { id: 1, title: "夏野菜丼", subtitle: "夏バテ対策・野菜の旨み", servings: "1人分", time: "35分",
                 description: "トマト、オクラ、ミョウガなど夏野菜をたっぷり使用。生姜の効いたタレで夏バテ防止にぴったり。",
@@ -405,23 +405,65 @@
             });
         };
 
+        // Helper: Calculate Nutrition Efficiency (Protein / Calories)
+        const getNutrientStats = (recipe) => {
+            if (!recipe.nutrition) return { cal: 9999, pro: 0, score: 0 };
+            
+            // カロリーの数値抽出 (例: "約750 kcal" -> 750)
+            const calMatch = recipe.nutrition.calories.match(/(\d+)/);
+            const cal = calMatch ? parseInt(calMatch[0]) : 9999;
+
+            // タンパク質の数値抽出 (例: "P:26.0g" -> 26.0)
+            const pfc = recipe.nutrition.pfc || "";
+            const proMatch = pfc.match(/P:([\d\.]+)/);
+            const pro = proMatch ? parseFloat(proMatch[1]) : 0;
+
+            // スコア: カロリーあたりのタンパク質 (高いほど優秀 = 筋肉維持しつつ低カロリー)
+            // カロリーが0の場合は除外
+            const score = cal > 0 ? (pro / cal) : 0;
+
+            return { cal, pro, score };
+        };
+
         // --- Components ---
 
         // 1. トップページ（目次）コンポーネント
         const TopPage = ({ recipes, searchTerm, setSearchTerm, onRecipeSelect, onDownload }) => {
             
-            // 検索ロジック
-            const filteredRecipes = useMemo(() => {
-                if (!searchTerm) return recipes;
-                const lowerCaseSearch = searchTerm.toLowerCase();
-                return recipes.filter(recipe => {
-                    const searchableText = [
-                        recipe.title, recipe.subtitle, recipe.description,
-                        ...recipe.ingredients.map(ing => ing.name)
-                    ].join(' ').toLowerCase();
-                    return searchableText.includes(lowerCaseSearch);
+            // 検索 & ソートロジック
+            const filteredAndSortedRecipes = useMemo(() => {
+                let result = recipes;
+                
+                // 1. 検索フィルタ
+                if (searchTerm) {
+                    const lowerCaseSearch = searchTerm.toLowerCase();
+                    result = result.filter(recipe => {
+                        const searchableText = [
+                            recipe.title, recipe.subtitle, recipe.description,
+                            ...recipe.ingredients.map(ing => ing.name)
+                        ].join(' ').toLowerCase();
+                        return searchableText.includes(lowerCaseSearch);
+                    });
+                }
+
+                // 2. ヘルシー順 (PFC効率順) にソート
+                // スコアが高い順 (降順)
+                return [...result].sort((a, b) => {
+                    const statsA = getNutrientStats(a);
+                    const statsB = getNutrientStats(b);
+                    return statsB.score - statsA.score;
                 });
+
             }, [searchTerm, recipes]);
+
+            // メダル表示用のヘルパー
+            const getRankIcon = (index) => {
+                if (searchTerm) return null; // 検索中は順位を表示しない
+                if (index === 0) return <span className="text-xl">🥇</span>;
+                if (index === 1) return <span className="text-xl">🥈</span>;
+                if (index === 2) return <span className="text-xl">🥉</span>;
+                return <span className="text-xs font-bold text-stone-400 w-5 text-center">{index + 1}</span>;
+            };
 
             return (
                 <div className="max-w-2xl mx-auto px-4 py-8 min-h-screen flex flex-col">
@@ -432,8 +474,9 @@
                                 今日のレシピ
                             </h1>
                         </div>
-                        <p className="text-stone-400 text-sm">
-                            作りたいメニューを選んでください
+                        <p className="text-stone-400 text-sm flex items-center justify-center gap-2">
+                            <Trophy size={14} className="text-amber-400"/>
+                            <span>ヘルシー順（タンパク質密度）で表示中</span>
                         </p>
                     </header>
 
@@ -451,26 +494,35 @@
 
                     {/* メニューリスト */}
                     <div className="flex-1 space-y-3">
-                        {filteredRecipes.map((recipe) => (
+                        {filteredAndSortedRecipes.map((recipe, index) => (
                             <button
                                 key={recipe.id}
                                 onClick={() => onRecipeSelect(recipe.id)}
-                                className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center justify-between group transition-all"
+                                className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center gap-4 group transition-all"
                             >
-                                <div>
-                                    <div className="text-stone-100 font-bold text-lg group-hover:text-amber-400 transition-colors">
-                                        {recipe.title}
+                                {/* ランク */}
+                                <div className="flex-shrink-0 flex items-center justify-center w-8">
+                                    {getRankIcon(index)}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                        <div className="text-stone-100 font-bold text-lg truncate group-hover:text-amber-400 transition-colors">
+                                            {recipe.title}
+                                        </div>
+                                        {/* カロリー表示 */}
+                                        <div className="flex items-center gap-1 text-amber-500 bg-amber-950/40 px-2 py-0.5 rounded text-xs font-mono whitespace-nowrap border border-amber-900/30">
+                                            <Flame size={12} />
+                                            {recipe.nutrition ? recipe.nutrition.calories.replace('kcal', '').replace('約', '') : '-'} kcal
+                                        </div>
                                     </div>
-                                    <div className="text-stone-400 text-xs mt-1">
+                                    <div className="text-stone-400 text-xs truncate">
                                         {recipe.subtitle}
                                     </div>
                                 </div>
-                                <div className="bg-stone-900/50 p-2 rounded-full text-stone-500 group-hover:text-stone-300">
-                                    <span className="text-xs px-2">{recipe.time}</span>
-                                </div>
                             </button>
                         ))}
-                        {filteredRecipes.length === 0 && (
+                        {filteredAndSortedRecipes.length === 0 && (
                             <div className="text-center text-stone-500 py-10">
                                 該当するレシピが見つかりませんでした
                             </div>
