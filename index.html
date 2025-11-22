@@ -15,6 +15,18 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
         html { scroll-behavior: smooth; }
+        
+        /* ハートのアニメーション */
+        @keyframes heartBeat {
+            0% { transform: scale(1); }
+            25% { transform: scale(1.2); }
+            50% { transform: scale(1); }
+            75% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .heart-active {
+            animation: heartBeat 0.4s ease-in-out;
+        }
     </style>
 
     <!-- React & アイコンライブラリ -->
@@ -38,7 +50,7 @@
     <script type="text/babel" data-type="module" id="main-script">
         import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed, Flame, Trophy, Zap, Eye, Dumbbell, Mail, PenLine, FilePlus } from 'lucide-react';
+        import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed, Flame, Trophy, Zap, Eye, Dumbbell, Mail, PenLine, FilePlus, Heart, MessageSquare } from 'lucide-react';
 
         // ▼▼▼ データ埋め込みポイント（共有用） ▼▼▼
         const PRELOADED_IMAGES = null; 
@@ -46,13 +58,8 @@
 
         // ★★★ フォームURL設定 ★★★
         const RECRUIT_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; // レシピ募集用
-        const FEEDBACK_FORM_URL = "https://forms.gle/vxxkemvB3fTbaBo37"; // 感想・フィードバック用
+        const FEEDBACK_FORM_URL = "https://forms.gle/hC8uPti6v4xR8JMaA"; // アプリ・レシピのフィードバック用
         
-        // ★★★ 保存データのキー（ここを変更して強制更新） ★★★
-        const STORAGE_KEY_IMAGES = 'recipeImages_v2'; 
-        const STORAGE_KEY_ACCESS = 'recipeAccessCounts';
-        const STORAGE_KEY_MEMOS = 'recipeMemos';
-
         // --- レシピデータ ---
         const initialRecipes = [
             { id: 1, title: "夏野菜丼", subtitle: "夏バテ対策・野菜の旨み", servings: "1人分", time: "35分",
@@ -226,14 +233,14 @@
                 ingredients: [
                     { name: "にんにく", amount: "1片" }, { name: "ベーコン", amount: "35g" }, { name: "オリーブオイル", amount: "大さじ 1" }, 
                     { name: "水", amount: "350cc" }, { name: "塩", amount: "小さじ 1/3" }, { name: "味の素", amount: "4振り" }, 
-                    { name: "1.6mm パスタ", amount: "100g" }, { name: "チューブチーズ", amount: "40g" }, { name: "卵", amount: "1個" }, 
+                    { name: "1.6mm パスタ", amount: "100g" }, { name: "チェダーチーズ", amount: "40g" }, { name: "卵", amount: "1個" }, 
                     { name: "黒こしょう", amount: "適量" }
                 ],
                 steps: [
                     "にんにくをみじん切り、ベーコンを細切りにする。卵をよく混ぜる。",
                     "フライパンでにんにくとベーコンを炒める。", "水、塩、味の素を入れる。",
                     "沸騰したらパスタと具材を一緒に入れ、水分をとばしながら茹でる。",
-                    "火を止め、チューブチーズを入れ、卵を加えて手早く混ぜる。黒こしょうを振って完成。"
+                    "火を止め、チェダーチーズを入れ、卵を加えて手早く混ぜる。黒こしょうを振って完成。"
                 ],
                 nutrition: {
                 calories: "約780 kcal",
@@ -488,8 +495,7 @@
 
         // --- Components ---
 
-        // 1. トップページ（目次）コンポーネント
-        const TopPage = ({ recipes, searchTerm, setSearchTerm, onRecipeSelect, onDownload, sortType, setSortType, accessCounts }) => {
+        const TopPage = ({ recipes, searchTerm, setSearchTerm, onRecipeSelect, onDownload, sortType, setSortType, accessCounts, favorites, onToggleFavorite }) => {
             
             const filteredAndSortedRecipes = useMemo(() => {
                 let result = recipes;
@@ -506,6 +512,13 @@
                 }
 
                 return [...result].sort((a, b) => {
+                    // お気に入りを最優先
+                    const isFavA = favorites.has(a.id);
+                    const isFavB = favorites.has(b.id);
+                    if (isFavA && !isFavB) return -1;
+                    if (!isFavA && isFavB) return 1;
+
+                    // その後のソートロジック
                     if (sortType === 'vitamin') {
                         const scoreA = getVitaminScore(a);
                         const scoreB = getVitaminScore(b);
@@ -525,7 +538,7 @@
                     return 0;
                 });
 
-            }, [searchTerm, recipes, sortType, accessCounts]);
+            }, [searchTerm, recipes, sortType, accessCounts, favorites]);
 
             const getRankIcon = (index) => {
                 if (searchTerm) return null; 
@@ -581,48 +594,73 @@
                     </div>
 
                     <div className="flex-1 space-y-3">
-                        {filteredAndSortedRecipes.map((recipe, index) => (
-                            <button
-                                key={recipe.id}
-                                onClick={() => onRecipeSelect(recipe.id)}
-                                className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center gap-4 group transition-all relative overflow-hidden"
-                            >
-                                {sortType === 'vitamin' && getVitaminScore(recipe) > 0 && (
-                                    <div className="absolute top-0 right-0 bg-amber-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-amber-500/20 text-[10px] text-amber-400 font-bold flex items-center gap-1">
-                                        <Zap size={10}/> Vitamin Rich
-                                    </div>
-                                )}
-                                {sortType === 'protein' && (
-                                    <div className="absolute top-0 right-0 bg-red-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-red-500/20 text-[10px] text-red-400 font-bold flex items-center gap-1">
-                                        <Dumbbell size={10}/> P: {getProteinAmount(recipe)}g
-                                    </div>
-                                )}
-                                {sortType === 'access' && (accessCounts[recipe.id] || 0) > 0 && (
-                                    <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-blue-500/20 text-[10px] text-blue-400 font-bold flex items-center gap-1">
-                                        <Eye size={10}/> {accessCounts[recipe.id]}回
-                                    </div>
-                                )}
+                        {filteredAndSortedRecipes.map((recipe, index) => {
+                            const isFav = favorites.has(recipe.id);
+                            return (
+                                <div key={recipe.id} className="relative group">
+                                    <button
+                                        onClick={() => onRecipeSelect(recipe.id)}
+                                        className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center gap-4 transition-all relative overflow-hidden"
+                                    >
+                                        {isFav && (
+                                            <div className="absolute top-0 left-0 bg-pink-500/20 p-1 rounded-br-lg border-b border-r border-pink-500/30">
+                                                <Heart size={12} fill="#ec4899" className="text-pink-500" />
+                                            </div>
+                                        )}
+                                        
+                                        {sortType === 'vitamin' && getVitaminScore(recipe) > 0 && !isFav && (
+                                            <div className="absolute top-0 right-0 bg-amber-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-amber-500/20 text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                                                <Zap size={10}/> Vitamin Rich
+                                            </div>
+                                        )}
+                                        {sortType === 'protein' && !isFav && (
+                                            <div className="absolute top-0 right-0 bg-red-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-red-500/20 text-[10px] text-red-400 font-bold flex items-center gap-1">
+                                                <Dumbbell size={10}/> P: {getProteinAmount(recipe)}g
+                                            </div>
+                                        )}
+                                        {sortType === 'access' && (accessCounts[recipe.id] || 0) > 0 && !isFav && (
+                                            <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-blue-500/20 text-[10px] text-blue-400 font-bold flex items-center gap-1">
+                                                <Eye size={10}/> {accessCounts[recipe.id]}回
+                                            </div>
+                                        )}
 
-                                <div className="flex-shrink-0 flex items-center justify-center w-8">
-                                    {getRankIcon(index)}
-                                </div>
+                                        <div className="flex-shrink-0 flex items-center justify-center w-8">
+                                            {getRankIcon(index)}
+                                        </div>
 
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between gap-2 mb-1">
-                                        <div className="text-stone-100 font-bold text-lg truncate group-hover:text-amber-400 transition-colors">
-                                            {recipe.title}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2 mb-1">
+                                                <div className="text-stone-100 font-bold text-lg truncate group-hover:text-amber-400 transition-colors">
+                                                    {recipe.title}
+                                                </div>
+                                                <div className="flex items-center gap-1 text-stone-500 bg-stone-900/40 px-2 py-0.5 rounded text-xs font-mono whitespace-nowrap border border-stone-700/30">
+                                                    <Flame size={12} />
+                                                    {recipe.nutrition ? recipe.nutrition.calories.replace('kcal', '').replace('約', '') : '-'}
+                                                </div>
+                                            </div>
+                                            <div className="text-stone-400 text-xs truncate">
+                                                {recipe.subtitle}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-1 text-stone-500 bg-stone-900/40 px-2 py-0.5 rounded text-xs font-mono whitespace-nowrap border border-stone-700/30">
-                                            <Flame size={12} />
-                                            {recipe.nutrition ? recipe.nutrition.calories.replace('kcal', '').replace('約', '') : '-'}
-                                        </div>
-                                    </div>
-                                    <div className="text-stone-400 text-xs truncate">
-                                        {recipe.subtitle}
-                                    </div>
+                                    </button>
+                                    
+                                    {/* お気に入りボタン (リスト上) */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onToggleFavorite(recipe.id);
+                                        }}
+                                        className="absolute bottom-4 right-4 p-2 text-stone-500 hover:text-pink-500 transition-colors z-10"
+                                    >
+                                        <Heart 
+                                            size={20} 
+                                            fill={isFav ? "#ec4899" : "none"} 
+                                            className={isFav ? "text-pink-500 heart-active" : ""}
+                                        />
+                                    </button>
                                 </div>
-                            </button>
-                        ))}
+                            );
+                        })}
                         {filteredAndSortedRecipes.length === 0 && (
                             <div className="text-center text-stone-500 py-10">
                                 該当するレシピが見つかりませんでした
@@ -631,6 +669,16 @@
                     </div>
 
                     <footer className="mt-8 pt-6 border-t border-stone-800 flex flex-col items-center gap-4">
+                        <a
+                            href={FEEDBACK_FORM_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full sm:w-auto px-6 py-3 rounded-full font-bold flex items-center justify-center gap-2 text-sm bg-stone-800 text-stone-300 border border-stone-700 hover:bg-stone-700 hover:text-white transition-all active:scale-95"
+                        >
+                            <MessageSquare size={16} /> 
+                            <span>アプリの感想・要望を送る</span>
+                        </a>
+
                         <a
                             href={RECRUIT_FORM_URL}
                             target="_blank"
@@ -655,7 +703,7 @@
 
 
         // 2. レシピカードコンポーネント
-        const RecipeCard = ({ recipe, onImageChange, currentImage, isReadOnly, idPrefix, memo, onMemoChange }) => {
+        const RecipeCard = ({ recipe, onImageChange, currentImage, isReadOnly, idPrefix, memo, onMemoChange, isFav, onToggleFavorite }) => {
             const [isExpanded, setIsExpanded] = useState(false);
             const fileInputRef = useRef(null);
 
@@ -669,7 +717,6 @@
                 }
             };
 
-            // 画像URLの判定ロジック
             const hasImage = currentImage && (
                 currentImage.startsWith('data:image') || 
                 currentImage.startsWith('uploaded:') || 
@@ -694,6 +741,21 @@
                     </div>
                     )}
 
+                    {/* お気に入りボタン (画像右上) */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(recipe.id);
+                        }}
+                        className="absolute top-3 right-3 p-2 bg-black/30 backdrop-blur-sm rounded-full text-white hover:bg-black/50 transition-colors z-20"
+                    >
+                        <Heart 
+                            size={20} 
+                            fill={isFav ? "#ec4899" : "none"} 
+                            className={isFav ? "text-pink-500 heart-active" : ""}
+                        />
+                    </button>
+
                     {!isReadOnly && (
                         <div 
                             onClick={() => fileInputRef.current?.click()}
@@ -712,7 +774,7 @@
                                 className={`
                                     bg-amber-700/90 text-white rounded-full shadow-lg flex items-center gap-2 backdrop-blur-sm transition-transform active:scale-95
                                     ${hasImage 
-                                        ? 'absolute bottom-3 right-3 p-2 bg-black/50 hover:bg-black/70' 
+                                        ? 'absolute bottom-3 right-14 p-2 bg-black/50 hover:bg-black/70' 
                                         : 'px-4 py-2 text-sm font-bold animate-bounce sm:animate-none'}
                                 `}
                             >
@@ -835,7 +897,7 @@
                             rel="noopener noreferrer"
                             className="block w-full text-center py-3 bg-stone-200 text-stone-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-stone-300 transition-colors active:scale-95"
                         >
-                            <Mail size={14} /> このレシピの感想を送る
+                            <Mail size={14} /> アプリ・レシピの感想を送る
                         </a>
 
                     </div>
@@ -852,6 +914,7 @@
             const [sortType, setSortType] = useState('vitamin'); 
             const [accessCounts, setAccessCounts] = useState({}); 
             const [memos, setMemos] = useState({}); 
+            const [favorites, setFavorites] = useState(new Set());
             
             const [currentView, setCurrentView] = useState('menu'); 
             const isSharedMode = PRELOADED_IMAGES !== null;
@@ -862,7 +925,7 @@
                     if (isSharedMode) {
                         setImages(PRELOADED_IMAGES);
                     } else {
-                        const savedImages = localStorage.getItem('recipeImages');
+                        const savedImages = localStorage.getItem('recipeImages_v2'); // キーを変更
                         if (savedImages) {
                             setImages(JSON.parse(savedImages));
                         } else {
@@ -874,16 +937,19 @@
                         }
                     }
 
-                    // 2. アクセス数の読み込み
                     const savedCounts = localStorage.getItem('recipeAccessCounts');
                     if (savedCounts) {
                         setAccessCounts(JSON.parse(savedCounts));
                     }
 
-                    // 3. メモの読み込み
                     const savedMemos = localStorage.getItem('recipeMemos');
                     if (savedMemos) {
                         setMemos(JSON.parse(savedMemos));
+                    }
+
+                    const savedFavorites = localStorage.getItem('recipeFavorites');
+                    if (savedFavorites) {
+                        setFavorites(new Set(JSON.parse(savedFavorites)));
                     }
 
                 } catch (e) {
@@ -899,7 +965,7 @@
                     setImages(prevImages => {
                         const newImages = { ...prevImages, [id]: base64Url };
                         if (!isSharedMode) {
-                            localStorage.setItem('recipeImages', JSON.stringify(newImages));
+                            localStorage.setItem('recipeImages_v2', JSON.stringify(newImages));
                         }
                         return newImages;
                     });
@@ -915,6 +981,22 @@
                         localStorage.setItem('recipeMemos', JSON.stringify(newMemos));
                     }
                     return newMemos;
+                });
+            };
+
+            // お気に入り切り替えハンドラ
+            const handleToggleFavorite = (id) => {
+                setFavorites(prev => {
+                    const newFavs = new Set(prev);
+                    if (newFavs.has(id)) {
+                        newFavs.delete(id);
+                    } else {
+                        newFavs.add(id);
+                    }
+                    if (!isSharedMode) {
+                        localStorage.setItem('recipeFavorites', JSON.stringify([...newFavs]));
+                    }
+                    return newFavs;
                 });
             };
 
@@ -941,6 +1023,8 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
         html { scroll-behavior: smooth; }
+        @keyframes heartBeat { 0% { transform: scale(1); } 25% { transform: scale(1.2); } 50% { transform: scale(1); } 75% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .heart-active { animation: heartBeat 0.4s ease-in-out; }
     </style>
     <script type="importmap">
         {
@@ -1011,6 +1095,8 @@
                         sortType={sortType}
                         setSortType={setSortType}
                         accessCounts={accessCounts}
+                        favorites={favorites}
+                        onToggleFavorite={handleToggleFavorite}
                     />
                 );
             }
@@ -1042,6 +1128,8 @@
                                         isReadOnly={false}
                                         memo={memos[recipe.id]}
                                         onMemoChange={handleMemoChange}
+                                        isFav={favorites.has(recipe.id)}
+                                        onToggleFavorite={handleToggleFavorite}
                                     />
                                 ))}
                             </div>
