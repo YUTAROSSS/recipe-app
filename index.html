@@ -47,7 +47,11 @@
         // ★★★ フォームURL設定 ★★★
         const RECRUIT_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; // レシピ募集用
         const FEEDBACK_FORM_URL = "https://forms.gle/vxxkemvB3fTbaBo37"; // 感想・フィードバック用
-        // ★★★★★★★★★★★★★★★★★
+        
+        // ★★★ 保存データのキー（ここを変更して強制更新） ★★★
+        const STORAGE_KEY_IMAGES = 'recipeImages_v2'; 
+        const STORAGE_KEY_ACCESS = 'recipeAccessCounts';
+        const STORAGE_KEY_MEMOS = 'recipeMemos';
 
         // --- レシピデータ ---
         const initialRecipes = [
@@ -423,7 +427,6 @@
                 advice: "豚肉のビタミンB1と玉ねぎのアリシンで疲労回復効果が抜群です。キャベツの千切りを添えると消化も助けます。"
                 }
             },
-            // ★ 追加されたレシピ ★
             { id: 20, title: "ケールとトマトサラダ", subtitle: "ビタミン爆弾！美肌サラダ", servings: "1〜2人分", time: "10分",
                 description: "栄養価の王様ケールとトマトを使ったホットサラダ風の一品。加熱したトマトのリコピンとオリーブオイルの組み合わせで吸収率アップ。",
                 image: "./ke-rutotomatosalada.png",
