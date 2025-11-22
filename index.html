@@ -24,12 +24,14 @@
             75% { transform: scale(1.2); }
             100% { transform: scale(1); }
         }
-        .heart-active {
-            animation: heartBeat 0.4s ease-in-out;
-        }
+        .heart-active { animation: heartBeat 0.4s ease-in-out; }
+        
+        /* スクロールバー非表示（見た目向上） */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 
-    <!-- React & アイコンライブラリ -->
+    <!-- ライブラリの読み込み設定 (バージョン固定で安定化) -->
     <script type="importmap">
         {
             "imports": {
@@ -39,27 +41,32 @@
             }
         }
     </script>
-    
-    <!-- Babel -->
+    <!-- Babel (JSX変換用) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- メインのアプリケーションコード -->
+    <!-- アプリケーションコード -->
     <script type="text/babel" data-type="module" id="main-script">
         import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
         import { Clock, Users, ChefHat, Info, ChevronDown, ChevronUp, Image as ImageIcon, Loader2, Search, Activity, Download, Share2, Camera, ArrowLeft, UtensilsCrossed, Flame, Trophy, Zap, Eye, Dumbbell, Mail, PenLine, FilePlus, Heart, MessageSquare } from 'lucide-react';
 
-        // ▼▼▼ データ埋め込みポイント（共有用） ▼▼▼
+        // ▼▼▼ データ埋め込みポイント ▼▼▼
         const PRELOADED_IMAGES = null; 
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-        // ★★★ フォームURL設定 ★★★
-        const RECRUIT_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; // レシピ募集用
-        const FEEDBACK_FORM_URL = "https://forms.gle/hC8uPti6v4xR8JMaA"; // アプリ・レシピのフィードバック用
+        // ★ URL設定 ★
+        const RECRUIT_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; 
+        const FEEDBACK_FORM_URL = "https://forms.gle/hC8uPti6v4xR8JMaA"; 
         
+        // ★ 保存キー ★
+        const STORAGE_KEY_IMAGES = 'recipeImages_v2';
+        const STORAGE_KEY_ACCESS = 'recipeAccessCounts';
+        const STORAGE_KEY_MEMOS = 'recipeMemos';
+        const STORAGE_KEY_FAVS = 'recipeFavorites';
+
         // --- レシピデータ ---
         const initialRecipes = [
             { id: 1, title: "夏野菜丼", subtitle: "夏バテ対策・野菜の旨み", servings: "1人分", time: "35分",
@@ -70,16 +77,8 @@
                 { name: "オクラ", amount: "2本 (20g)" }, { name: "ミョウガ", amount: "1/2個 (8g)" }, { name: "塩", amount: "2g (小さじ1/3程度)" }, 
                 { name: "鰹節", amount: "ひとつまみ" }, { name: "白米", amount: "1膳 (150g)" }
                 ],
-                steps: [
-                "トマトは1cm角、大葉は千切り、オクラは薄く小口切り、生姜とミョウガはみじん切りにする。",
-                "野菜と塩を混ぜて、冷蔵庫で30分置いておく。", "ご飯にかけて食べる。"
-                ],
-                nutrition: {
-                calories: "262 kcal",
-                pfc: "P:5.0g / F:0.6g / C:62.3g",
-                nutrients: ["カリウム: 約400mg（むくみ排出）", "ビタミンC: 約15〜20mg（トマト・オクラ由来）", "食物繊維: 2.8g"],
-                advice: "カロリーは低いですがタンパク質が不足気味。温泉卵や納豆を足すと栄養バランスが完璧になります。"
-                }
+                steps: [ "トマトは1cm角、大葉は千切り、オクラは薄く小口切り、生姜とミョウガはみじん切りにする。", "野菜と塩を混ぜて、冷蔵庫で30分置いておく。", "ご飯にかけて食べる。" ],
+                nutrition: { calories: "262 kcal", pfc: "P:5.0g / F:0.6g / C:62.3g", nutrients: ["カリウム: 約400mg（むくみ排出）", "ビタミンC: 約15〜20mg（トマト・オクラ由来）", "食物繊維: 2.8g"], advice: "カロリーは低いですがタンパク質が不足気味。温泉卵や納豆を足すと栄養バランスが完璧になります。" }
             },
             { id: 2, title: "秋の味覚丼", subtitle: "秋しらすとキノコで味わう", servings: "2人分", time: "20分",
                 description: "秋しらすとキノコの旨みたっぷり。オリーブオイルとレモンでさっぱりと仕上げた季節の一品です。",
@@ -90,17 +89,8 @@
                 { name: "塩", amount: "ひとつまみ (1.5g)" }, { name: "醤油", amount: "小さじ2 (12g)" }, { name: "オリーブオイル", amount: "小さじ2 (8g)" }, 
                 { name: "レモン果汁", amount: "小さじ1 (5g)" }, { name: "白胡麻", amount: "小さじ1 (3g)" }
                 ],
-                steps: [
-                "トマトをダイス状にカットする。", "ボウルに入れ、塩を加えて混ぜ10分置いておく。", "マッシュルームをスライスしてレモン果汁を和える。",
-                "トマト、マッシュルーム、醤油、オリーブオイルをボウルに入れ、板海苔1/2枚を細かくちぎって混ぜる。",
-                "さらに10分置いて味をなじませる。", "ご飯に具材をかけ、残りの海苔としらす、胡麻を乗せて完成。"
-                ],
-                nutrition: {
-                calories: "約750 kcal",
-                pfc: "P:26.0g / F:20.0g / C:125.0g",
-                nutrients: ["カルシウム: 約150mg（しらす由来・吸収率良）", "ビタミンD: 約3.0µg（しらす・キノコ由来）"],
-                advice: "ご飯300gのため糖質が非常に高いです。運動後のリカバリー食として最適ですが、減量中はご飯を半分に。"
-                }
+                steps: [ "トマトをダイス状にカットする。", "ボウルに入れ、塩を加えて混ぜ10分置いておく。", "マッシュルームをスライスしてレモン果汁を和える。", "トマト、マッシュルーム、醤油、オリーブオイルをボウルに入れ、板海苔1/2枚を細かくちぎって混ぜる。", "さらに10分置いて味をなじませる。", "ご飯に具材をかけ、残りの海苔としらす、胡麻を乗せて完成。" ],
+                nutrition: { calories: "約750 kcal", pfc: "P:26.0g / F:20.0g / C:125.0g", nutrients: ["カルシウム: 約150mg（しらす由来・吸収率良）", "ビタミンD: 約3.0µg（しらす・キノコ由来）"], advice: "ご飯300gのため糖質が非常に高いです。運動後のリカバリー食として最適ですが、減量中はご飯を半分に。" }
             },
             { id: 3, title: "鶏ももとトマトのチョコ煮込み", subtitle: "水を一切使わない濃厚な味わい", servings: "2-3人分", time: "50分 (炊飯器)",
                 description: "炊飯器におまかせ。トマトの水分だけで煮込む濃厚シチュー。隠し味のチョコと味噌がポイント。",
@@ -111,18 +101,8 @@
                 { name: "粉チーズ", amount: "小さじ1/2" }, { name: "塩", amount: "小さじ1/2 (3g)" }, { name: "ローリエ", amount: "1枚" }, 
                 { name: "赤ワイン", amount: "30cc" }, { name: "オレンジ", amount: "1/2個 (75g)" }, { name: "チョコレート(85%)", amount: "10g" }
                 ],
-                steps: [
-                "トマトはざく切り、玉ねぎ・マッシュルーム・にんにくはスライス、ジャガイモと鶏肉は一口大に切る。",
-                "炊飯器の内釜に、トマト、たまねぎ、鶏もも肉、にんにく、マッシュルーム、ジャガイモの順で入れる。",
-                "オレンジの皮をピーラーで剥いて入れ, 果汁、塩、赤ワイン、チョコ、ローリエを入れる。",
-                "早炊きモードで加熱する。", "加熱後ローリエを取り出し、チーズを加えて混ぜれば完成。"
-                ],
-                nutrition: {
-                calories: "733 kcal",
-                pfc: "P:52.7g / F:37.2g / C:60.2g",
-                nutrients: ["カリウム: 約1200mg（トマト大量使用のため非常に豊富）", "リコピン: 高含有（加熱で吸収率UP）", "食物繊維: 18.3g"],
-                advice: "カリウムが非常に多く、塩分排出・むくみ解消に最強のメニュー。脂質も高めなので、パンやご飯は控えめに。"
-                }
+                steps: [ "トマトはざく切り、玉ねぎ・マッシュルーム・にんにくはスライス、ジャガイモと鶏肉は一口大に切る。", "炊飯器の内釜に、トマト、たまねぎ、鶏もも肉、にんにく、マッシュルーム、ジャガイモの順で入れる。", "オレンジの皮をピーラーで剥いて入れ, 果汁、塩、赤ワイン、チョコ、ローリエを入れる。", "早炊きモードで加熱する。", "加熱後ローリエを取り出し、チーズを加えて混ぜれば完成。" ],
+                nutrition: { calories: "733 kcal", pfc: "P:52.7g / F:37.2g / C:60.2g", nutrients: ["カリウム: 約1200mg（トマト大量使用のため非常に豊富）", "リコピン: 高含有（加熱で吸収率UP）", "食物繊維: 18.3g"], advice: "カリウムが非常に多く、塩分排出・むくみ解消に最強のメニュー。脂質も高めなので、パンやご飯は控えめに。" }
             },
             { id: 4, title: "ポトフ", subtitle: "高栄養密度・体温まる", servings: "4食分", time: "40分",
                 description: "鶏肉とたっぷりの野菜で満足感のある一皿。素材の旨味が溶け出したスープは、寒い季節にぴったりです。",
@@ -133,18 +113,8 @@
                 { name: "キャベツ", amount: "1/4個 (250g)" }, { name: "フレッシュバジル", amount: "5枚 (2g)" }, { name: "チキンストック", amount: "200cc" }, 
                 { name: "塩", amount: "10g" }, { name: "ブラックペッパー", amount: "10ひねり" }
                 ],
-                steps: [
-                "鶏肉は切らずに全体に胡椒を振る。", "鍋にバターを熱し、鶏肉を塊のまま入れて表面に焼き色をつける。",
-                "さつまいもは皮つきのまま電子レンジで3分加熱する。",
-                "鍋にエリンギ、舞茸、マッシュルームを入れ、ホールトマト、チキンストック、バジルを加える。",
-                "加熱したさつまいもと、適当な大きさに切ったキャベツ、塩を加え、蓋をして30分じっくり煮込む。"
-                ],
-                nutrition: {
-                calories: "約480 kcal",
-                pfc: "P:28.0g / F:32.0g / C:25.0g",
-                nutrients: ["ビタミンC: 約30mg（さつまいもは加熱に強い）", "ビタミンK: 約40µg（キャベツ由来）"],
-                advice: "野菜と肉のバランスが良いです。脂質を抑えたい場合は、鶏肉の皮を取り除くだけで大幅にカロリーカットできます。"
-                }
+                steps: [ "鶏肉は切らずに全体に胡椒を振る。", "鍋にバターを熱し、鶏肉を塊のまま入れて表面に焼き色をつける。", "さつまいもは皮つきのまま電子レンジで3分加熱する。", "鍋にエリンギ、舞茸、マッシュルームを入れ、ホールトマト、チキンストック、バジルを加える。", "加熱したさつまいもと、適当な大きさに切ったキャベツ、塩を加え、蓋をして30分じっくり煮込む。" ],
+                nutrition: { calories: "約480 kcal", pfc: "P:28.0g / F:32.0g / C:25.0g", nutrients: ["ビタミンC: 約30mg（さつまいもは加熱に強い）", "ビタミンK: 約40µg（キャベツ由来）"], advice: "野菜と肉のバランスが良いです。脂質を抑えたい場合は、鶏肉の皮を取り除くだけで大幅にカロリーカットできます。" }
             },
             { id: 5, title: "豚キャベツレンチン蒸し", subtitle: "簡単！やみつき白だし味", servings: "2人分", time: "10分",
                 description: "豚バラとキャベツをタッパーに入れてレンジで加熱するだけの超時短レシピ。白だしとごま油で風味豊かに。",
@@ -154,17 +124,8 @@
                     { name: "ごま油", amount: "大さじ 0.5" }, { name: "にんにく", amount: "1片" }, { name: "片栗粉", amount: "小さじ 1" }, 
                     { name: "酒", amount: "大さじ 1" }, { name: "こしょう", amount: "少々" }
                 ],
-                steps: [
-                    "タッパーにキャベツをざく切りにし、白だし、ごま油、おろしにんにく、片栗粉、酒、こしょうを入れる。",
-                    "白だしと片栗粉を混ぜてからキャベツの上にかける。", "豚バラをのせる。",
-                    "ふた（ラップ）をかぶせ、600Wで5分20秒加熱する。", "全体をよく混ぜて盛り付け、お好みでラー油やレモン汁をかける。"
-                ],
-                nutrition: {
-                calories: "約350 kcal",
-                pfc: "P:12.0g / F:28.0g / C:8.0g",
-                nutrients: ["ビタミンB1: 約0.6mg（豚肉由来・疲労回復）", "ビタミンC: 約70mg（キャベツたっぷり）"],
-                advice: "「疲労回復」に特化した組み合わせ。ご飯と一緒に食べてB1の効果でエネルギーチャージしましょう。"
-                }
+                steps: [ "タッパーにキャベツをざく切りにし、白だし、ごま油、おろしにんにく、片栗粉、酒、こしょうを入れる。", "白だしと片栗粉を混ぜてからキャベツの上にかける。", "豚バラをのせる。", "ふた（ラップ）をかぶせ、600Wで5分20秒加熱する。", "全体をよく混ぜて盛り付け、お好みでラー油やレモン汁をかける。" ],
+                nutrition: { calories: "約350 kcal", pfc: "P:12.0g / F:28.0g / C:8.0g", nutrients: ["ビタミンB1: 約0.6mg（豚肉由来・疲労回復）", "ビタミンC: 約70mg（キャベツたっぷり）"], advice: "「疲労回復」に特化した組み合わせ。ご飯と一緒に食べてB1の効果でエネルギーチャージしましょう。" }
             },
             { id: 6, title: "りゅうじのナポリタン", subtitle: "ポークチャップ風の濃厚ソース", servings: "1人分", time: "25分",
                 description: "ケチャップを煮詰めて作る、昔ながらのポークチャップ風濃厚ナポリタン。",
@@ -175,19 +136,8 @@
                     { name: "バター", amount: "10g" }, { name: "サラダ油", amount: "小さじ 2" }, { name: "塩", amount: "適量" }, 
                     { name: "粉チーズ、パセリ", amount: "適量" }, { name: "ウスターソース", amount: "小さじ 1 (ソース用)" }
                 ],
-                steps: [
-                    "ウインナーは斜め切り、玉ねぎは薄切り、マッシュルームは薄切り、ピーマンは細切りにする。",
-                    "フライパンにサラダ油を入れて加熱。ウインナー、玉ねぎを炒める。",
-                    "ケチャップ大さじ4を入れて煮つめ、底にくっつく程度まで炒める。マッシュルームも加え炒める。",
-                    "別のソース（ケチャップ大さじ3、ウスター小さじ1など）で茹でたパスタをからめて炒める。",
-                    "器に盛り付け、バターを乗せて粉チーズ、パセリを振る。"
-                ],
-                nutrition: {
-                calories: "約750 kcal",
-                pfc: "P:25.0g / F:35.0g / C:85.0g",
-                nutrients: ["ナトリウム: 2.5g以上（塩分高め）"],
-                advice: "典型的な高カロリー・高塩分メニュー。前後の食事で野菜を多めに摂り、塩分を控える調整が必要です。"
-                }
+                steps: [ "ウインナーは斜め切り、玉ねぎは薄切り、マッシュルームは薄切り、ピーマンは細切りにする。", "フライパンにサラダ油を入れて加熱。ウインナー、玉ねぎを炒める。", "ケチャップ大さじ4を入れて煮つめ、底にくっつく程度まで炒める。マッシュルームも加え炒める。", "別のソース（ケチャップ大さじ3、ウスター小さじ1など）で茹でたパスタをからめて炒める。", "器に盛り付け、バターを乗せて粉チーズ、パセリを振る。" ],
+                nutrition: { calories: "約750 kcal", pfc: "P:25.0g / F:35.0g / C:85.0g", nutrients: ["ナトリウム: 2.5g以上（塩分高め）"], advice: "典型的な高カロリー・高塩分メニュー。前後の食事で野菜を多めに摂り、塩分を控える調整が必要です。" }
             },
             { id: 7, title: "ゆかりバターパスタ", subtitle: "簡単！和風あっさり味", servings: "2人分", time: "15分",
                 description: "ゆかりとバター、醤油で仕上げるシンプルな和風パスタ。茹で汁を飛ばしながら煮詰めるのがポイント。",
@@ -197,17 +147,8 @@
                     { name: "醤油", amount: "大さじ 1" }, { name: "味の素", amount: "4振り" }, { name: "にんにく (おろし)", amount: "1片" }, 
                     { name: "ゆかり", amount: "大さじ 1 小さじ 2" }
                 ],
-                steps: [
-                    "フライパンに水、醤油、味の素、おろしにんにくを入れて沸かす。",
-                    "パスタを入れ、水分が少なくなり煮汁が少し残るくらいまで7分間水を飛ばしながら煮込む。",
-                    "火を止め、バターを入れてあえる。", "ゆかりを混ぜて完成。"
-                ],
-                nutrition: {
-                calories: "約580 kcal",
-                pfc: "P:14.0g / F:18.0g / C:82.0g",
-                nutrients: ["ナトリウム: ゆかり・醤油で塩分多め"],
-                advice: "ほぼ炭水化物のみです。ツナ缶やサラダチキンを混ぜてタンパク質を補強しましょう。"
-                }
+                steps: [ "フライパンに水、醤油、味の素、おろしにんにくを入れて沸かす。", "パスタを入れ、水分が少なくなり煮汁が少し残るくらいまで7分間水を飛ばしながら煮込む。", "火を止め、バターを入れてあえる。", "ゆかりを混ぜて完成。" ],
+                nutrition: { calories: "約580 kcal", pfc: "P:14.0g / F:18.0g / C:82.0g", nutrients: ["ナトリウム: ゆかり・醤油で塩分多め"], advice: "ほぼ炭水化物のみです。ツナ缶やサラダチキンを混ぜてタンパク質を補強しましょう。" }
             },
             { id: 8, title: "レタスサラダ", subtitle: "めんつゆベースのやみつきドレッシング", servings: "2人分", time: "5分",
                 description: "めんつゆとごま油ベースで簡単に作れる、レタスの消費に最適なやみつきサラダ。",
@@ -216,19 +157,11 @@
                     { name: "レタス", amount: "150g" }, { name: "めんつゆ", amount: "大さじ 1" }, { name: "砂糖", amount: "大さじ 1" }, 
                     { name: "ごま油", amount: "大さじ 1" }, { name: "のり", amount: "適量" }, { name: "白ごま", amount: "適量" }, { name: "塩", amount: "適量" }
                 ],
-                steps: [
-                    "レタスを手でちぎる。", "めんつゆ、砂糖、ごま油、塩をボウルに入れる。",
-                    "よく混ぜてレタスにかけ、水気を切る。", "のりや白ごまを振って完成。"
-                ],
-                nutrition: {
-                calories: "約80 kcal",
-                pfc: "P:1.5g / F:6.0g / C:4.0g",
-                nutrients: ["ビタミンK: 約40µg", "葉酸: 約50µg"],
-                advice: "カロリーはドレッシング（ごま油）由来が主。メイン料理の前に食べることで血糖値の上昇を抑えられます。"
-                }
+                steps: [ "レタスを手でちぎる。", "めんつゆ、砂糖、ごま油、塩をボウルに入れる。", "よく混ぜてレタスにかけ、水気を切る。", "のりや白ごまを振って完成。" ],
+                nutrition: { calories: "約80 kcal", pfc: "P:1.5g / F:6.0g / C:4.0g", nutrients: ["ビタミンK: 約40µg", "葉酸: 約50µg"], advice: "カロリーはドレッシング（ごま油）由来が主。メイン料理の前に食べることで血糖値の上昇を抑えられます。" }
             },
             { id: 9, title: "りゅうじのカルボナーラ", subtitle: "水とチーズで煮込む濃厚パスタ", servings: "1人分", time: "20分",
-                description: "水と少量のチーズで煮込んで作る、濃厚でクリーミーなワンパンカルボナーラ。",
+                description: "水と少量のチーズで煮込んで作る、濃厚でクリーミーなワンパンカルボナーラ。※材料修正済み",
                 image: "./karubona-ra.png",
                 ingredients: [
                     { name: "にんにく", amount: "1片" }, { name: "ベーコン", amount: "35g" }, { name: "オリーブオイル", amount: "大さじ 1" }, 
@@ -238,16 +171,11 @@
                 ],
                 steps: [
                     "にんにくをみじん切り、ベーコンを細切りにする。卵をよく混ぜる。",
-                    "フライパンでにんにくとベーコンを炒める。", "水、塩、味の素を入れる。",
+                    "フライパンでにんにくとベーコンを炒める。水、塩、味の素を入れる。",
                     "沸騰したらパスタと具材を一緒に入れ、水分をとばしながら茹でる。",
                     "火を止め、チェダーチーズを入れ、卵を加えて手早く混ぜる。黒こしょうを振って完成。"
                 ],
-                nutrition: {
-                calories: "約780 kcal",
-                pfc: "P:32.0g / F:38.0g / C:75.0g",
-                nutrients: ["カルシウム: チーズ由来", "セレン: 卵由来（抗酸化作用）"],
-                advice: "濃厚で腹持ちが良いですが脂質が高め。ランチに食べて、午後の活動エネルギーにするのがおすすめです。"
-                }
+                nutrition: { calories: "約780 kcal", pfc: "P:32.0g / F:38.0g / C:75.0g", nutrients: ["カルシウム: チーズ由来", "セレン: 卵由来（抗酸化作用）"], advice: "濃厚で腹持ちが良いですが脂質が高め。ランチに食べて、午後の活動エネルギーにするのがおすすめです。" }
             },
             { id: 11, title: "やみつき鶏", subtitle: "ピリ辛甘辛ダレでご飯が進む", servings: "2人分", time: "15分",
                 description: "タバスコの隠し味と甘辛いタレが食欲をそそる、ご飯にもおつまみにも最適な鶏もも肉料理。",
@@ -258,17 +186,8 @@
                     { name: "酒", amount: "大さじ 1" }, { name: "にんにく (おろし)", amount: "1片" }, { name: "味の素", amount: "3振り" }, 
                     { name: "タバスコ", amount: "小さじ 1" }, { name: "塩、胡椒", amount: "少々" }
                 ],
-                steps: [
-                    "鶏もも肉を一口大に切って下味（塩胡椒）をつけ、片栗粉をまぶす。",
-                    "タレ（片栗粉、醤油、酒、ケチャップ、にんにく、味の素、タバスコ）を混ぜて作っておく。",
-                    "フライパンにバターを入れて温め、肉を火が通るまで焼き、タレを入れて絡める。（オリーブオイルでも可）"
-                ],
-                nutrition: {
-                calories: "約550 kcal",
-                pfc: "P:30.0g / F:35.0g / C:25.0g",
-                nutrients: ["ナイアシン: 約7mg（代謝促進）", "亜鉛: 約2.5mg"],
-                advice: "タンパク質は十分ですが、野菜がありません。「8. レタスサラダ」などの副菜と一緒に食べましょう。"
-                }
+                steps: [ "鶏もも肉を一口大に切って下味（塩胡椒）をつけ、片栗粉をまぶす。", "タレ（片栗粉、醤油、酒、ケチャップ、にんにく、味の素、タバスコ）を混ぜて作っておく。", "フライパンにバターを入れて温め、肉を火が通るまで焼き、タレを入れて絡める。（オリーブオイルでも可）" ],
+                nutrition: { calories: "約550 kcal", pfc: "P:30.0g / F:35.0g / C:25.0g", nutrients: ["ナイアシン: 約7mg（代謝促進）", "亜鉛: 約2.5mg"], advice: "タンパク質は十分ですが、野菜がありません。「8. レタスサラダ」などの副菜と一緒に食べましょう。" }
             },
             { id: 12, title: "豚ミンチチャーハン", subtitle: "ネギ油とオイスターソースが決め手", servings: "2人分", time: "20分",
                 description: "ネギ油と豚ミンチ、オイスターソースの旨味を効かせた、プロ級の本格チャーハン。",
@@ -279,18 +198,8 @@
                     { name: "醤油", amount: "小さじ 1" }, { name: "オイスターソース", amount: "小さじ 1" }, { name: "塩", amount: "小さじ 1/3" }, 
                     { name: "ハイミー", amount: "8振り" }, { name: "黒胡椒", amount: "適量" }, { name: "酒", amount: "大さじ 1" }
                 ],
-                steps: [
-                    "油大さじ2で青ネギを揚げてネギ油を作る。",
-                    "ご飯にネギ油、豚ミンチ、醤油、オイスターソースを混ぜて味をしみこませておく。",
-                    "具材を炒め、熱くなったら生姜、長ネギ青い部分も入れる。具を端に寄せて、溶き卵、ご飯の順に入れて混ぜる。",
-                    "パラパラしてきたら、塩、味の素、黒胡椒、長ネギ白部みじん切りを入れ、酒を入れてアルコールを飛ばして完成。"
-                ],
-                nutrition: {
-                calories: "約750 kcal",
-                pfc: "P:22.0g / F:30.0g / C:95.0g",
-                nutrients: ["アリシン: ネギ由来（豚肉のビタミンB1吸収率UP）"],
-                advice: "豚肉×ネギ×卵でスタミナ満点ですが、糖質過多になりがち。スープで水分とお腹を満たすのが吉。"
-                }
+                steps: [ "油大さじ2で青ネギを揚げてネギ油を作る。", "ご飯にネギ油、豚ミンチ、醤油、オイスターソースを混ぜて味をしみこませておく。", "具材を炒め、熱くなったら生姜、長ネギ青い部分も入れる。具を端に寄せて、溶き卵、ご飯の順に入れて混ぜる。", "パラパラしてきたら、塩、味の素、黒胡椒、長ネギ白部みじん切りを入れ、酒を入れてアルコールを飛ばして完成。" ],
+                nutrition: { calories: "約750 kcal", pfc: "P:22.0g / F:30.0g / C:95.0g", nutrients: ["アリシン: ネギ由来（豚肉のビタミンB1吸収率UP）"], advice: "豚肉×ネギ×卵でスタミナ満点ですが、糖質過多になりがち。スープで水分とお腹を満たすのが吉。" }
             },
             { id: 13, title: "卵丼", subtitle: "鰹節と玉ねぎで簡単に煮込む", servings: "1人分", time: "15分",
                 description: "玉ねぎと鰹節の出汁が効いた、シンプルで優しい味わいの卵丼。",
@@ -300,17 +209,8 @@
                     { name: "醤油", amount: "大さじ 1" }, { name: "みりん", amount: "大さじ 2" }, { name: "水", amount: "大さじ 2" }, 
                     { name: "味の素", amount: "3振り" }, { name: "卵", amount: "2個" }
                 ],
-                steps: [
-                    "鍋に玉ねぎ、醤油、みりん、水、鰹節、味の素を入れて弱火にかける。",
-                    "別の皿で卵を溶き、レンジで半煮にする。（600Wで約50秒ずつ）",
-                    "加熱した卵を鍋に戻し、煮る。"
-                ],
-                nutrition: {
-                calories: "約550 kcal",
-                pfc: "P:18.0g / F:12.0g / C:90.0g",
-                nutrients: ["ビオチン: 卵由来", "硫化アリル: 玉ねぎ由来（血液サラサラ）"],
-                advice: "消化に良く優しいメニューですが、早食いになりがち。よく噛んで食べることを意識してください。"
-                }
+                steps: [ "鍋に玉ねぎ、醤油、みりん、水、鰹節、味の素を入れて弱火にかける。", "別の皿で卵を溶き、レンジで半煮にする。（600Wで約50秒ずつ）", "加熱した卵を鍋に戻し、煮る。" ],
+                nutrition: { calories: "約550 kcal", pfc: "P:18.0g / F:12.0g / C:90.0g", nutrients: ["ビオチン: 卵由来", "硫化アリル: 玉ねぎ由来（血液サラサラ）"], advice: "消化に良く優しいメニューですが、早食いになりがち。よく噛んで食べることを意識してください。" }
             },
             { id: 14, title: "豚大根", subtitle: "豚ミンチの旨み煮込み", servings: "4人分", time: "50分 (炊飯器)",
                 description: "豚ミンチと大根を炊飯器で煮込む簡単レシピ。味噌と生姜が効いたつゆだくの濃厚な味わい。",
@@ -321,18 +221,8 @@
                     { name: "醤油", amount: "大さじ 3" }, { name: "酒", amount: "大さじ 2" }, { name: "はちみつ", amount: "大さじ 1" }, 
                     { name: "チキンストック", amount: "100cc" }
                 ],
-                steps: [
-                    "大根を2cm厚さの銀杏切りにする。",
-                    "ボウルに豚ミンチ、にんにく、しょうが、長ネギ、味噌、醤油、酒、はちみつを全て入れてよく混ぜる。",
-                    "1と2を炊飯器の内釜に入れて和え、チキンストックを入れる。", "早炊きで加熱する。",
-                    "炊けたら上下ひっくり返すように混ぜ、保温のまま10分おいて完成。"
-                ],
-                nutrition: {
-                calories: "約380 kcal",
-                pfc: "P:15.0g / F:25.0g / C:20.0g",
-                nutrients: ["ビタミンC: 大根由来（煮汁に溶出）", "カリウム: 煮汁に溶出"],
-                advice: "栄養素が煮汁に溶け出しています。塩分に気をつけつつスープも適度に飲むと栄養を無駄なく摂取できます。"
-                }
+                steps: [ "大根を2cm厚さの銀杏切りにする。", "ボウルに豚ミンチ、にんにく、しょうが、長ネギ、味噌、醤油、酒、はちみつを全て入れてよく混ぜる。", "1と2を炊飯器の内釜に入れて和え、チキンストックを入れる。", "早炊きで加熱する。", "炊けたら上下ひっくり返すように混ぜ、保温のまま10分おいて完成。" ],
+                nutrition: { calories: "約380 kcal", pfc: "P:15.0g / F:25.0g / C:20.0g", nutrients: ["ビタミンC: 大根由来（煮汁に溶出）", "カリウム: 煮汁に溶出"], advice: "栄養素が煮汁に溶け出しています。塩分に気をつけつつスープも適度に飲むと栄養を無駄なく摂取できます。" }
             },
             { id: 15, title: "だし巻き卵（甘口・関東風）", subtitle: "みりん砂糖で甘めに仕上げる", servings: "1人分", time: "10分",
                 description: "みりんや砂糖を加えて甘めに仕上げる、お弁当にもぴったりのふっくらしただし巻き卵です。",
@@ -341,16 +231,8 @@
                     { name: "卵", amount: "2個" }, { name: "水", amount: "50cc" }, { name: "塩", amount: "小さじ 1/4" }, 
                     { name: "みりん", amount: "小さじ 1.5" }, { name: "砂糖", amount: "ひとつまみ" }, { name: "白だし", amount: "大さじ 1" }
                 ],
-                steps: [
-                    "全ての材料を混ぜ合わせ、卵焼き液を作る。",
-                    "油を多めにひいた卵焼き器に、強めの中火で数回に分けて流し入れながら巻いていく。"
-                ],
-                nutrition: {
-                calories: "230〜280 kcal",
-                pfc: "P:13〜19g / F:15〜20g / C:2〜8g",
-                nutrients: ["ビタミンD: 約3.0µg（卵黄由来）", "セレン: 抗酸化作用"],
-                advice: "「完全栄養食」の卵を手軽に摂れます。ご飯のおかずにするなら、甘口よりも白だし（関西風）の方が糖質を抑えられます。"
-                }
+                steps: [ "全ての材料を混ぜ合わせ、卵焼き液を作る。", "油を多めにひいた卵焼き器に、強めの中火で数回に分けて流し入れながら巻いていく。" ],
+                nutrition: { calories: "230〜280 kcal", pfc: "P:13〜19g / F:15〜20g / C:2〜8g", nutrients: ["ビタミンD: 約3.0µg（卵黄由来）", "セレン: 抗酸化作用"], advice: "「完全栄養食」の卵を手軽に摂れます。ご飯のおかずにするなら、甘口よりも白だし（関西風）の方が糖質を抑えられます。" }
             },
             { id: 16, title: "だし巻き卵（白だし・関西風）", subtitle: "出汁の風味を効かせた塩味", servings: "1人分", time: "10分",
                 description: "白だしと鰹節粉を使い、出汁の風味を強調した、上品な味わいの塩味のだし巻き卵です。",
@@ -359,16 +241,8 @@
                     { name: "卵", amount: "3個" }, { name: "水", amount: "110cc" }, { name: "醤油", amount: "小さじ 1/3" }, 
                     { name: "味の素", amount: "4振り" }, { name: "砂糖", amount: "2つまみ" }, { name: "鰹節粉", amount: "3g" }
                 ],
-                steps: [
-                    "全ての材料を混ぜ合わせ、卵焼き液を作る。",
-                    "油を多めにひいた卵焼き器に、強めの中火で数回に分けて流し入れながら巻いていく。"
-                ],
-                nutrition: {
-                calories: "230〜280 kcal",
-                pfc: "P:13〜19g / F:15〜20g / C:2〜8g",
-                nutrients: ["ビタミンD: 約3.0µg（卵黄由来）", "セレン: 抗酸化作用"],
-                advice: "「完全栄養食」の卵を手軽に摂れます。ご飯のおかずにするなら、甘口よりも白だし（関西風）の方が糖質を抑えられます。"
-                }
+                steps: [ "全ての材料を混ぜ合わせ、卵焼き液を作る。", "油を多めにひいた卵焼き器に、強めの中火で数回に分けて流し入れながら巻いていく。" ],
+                nutrition: { calories: "230〜280 kcal", pfc: "P:13〜19g / F:15〜20g / C:2〜8g", nutrients: ["ビタミンD: 約3.0µg（卵黄由来）", "セレン: 抗酸化作用"], advice: "「完全栄養食」の卵を手軽に摂れます。ご飯のおかずにするなら、甘口よりも白だし（関西風）の方が糖質を抑えられます。" }
             },
             { id: 17, title: "豆腐とブロッコリーの揉み込みサラダ", subtitle: "超簡単！植物性タンパク質が豊富", servings: "2人分", time: "15分",
                 description: "豆腐の柔らかさと生ブロッコリーの歯ごたえが楽しいサラダ。ネギ塩オイルで和えることで満足度を上げます。",
@@ -378,18 +252,8 @@
                     { name: "玉ねぎ", amount: "1/4個" }, { name: "にんにく", amount: "1片" }, { name: "オリーブオイル", amount: "50cc" },
                     { name: "塩", amount: "小さじ 1" }, { name: "ブラックペッパー", amount: "お好み" }
                 ],
-                steps: [
-                    "玉ねぎ、にんにくをみじん切りにし、電子レンジ600Wで1分半加熱する。",
-                    "1にオリーブオイル、塩を入れ混ぜてネギ塩オイルを作る。",
-                    "ブロッコリーを一口大に切り、豆腐とネギ塩オイルの1/3量を袋に入れ揉み込む。",
-                    "皿に盛り付け、ネギ塩オイルをお好みで少しのせ、ブラックペッパーをかけて完成。"
-                ],
-                nutrition: {
-                calories: "約280 kcal",
-                pfc: "P:9.0g / F:24.0g / C:5.0g",
-                nutrients: ["ビタミンC: 約120mg（これ1食で1日分クリア）", "マグネシウム: 豆腐由来"],
-                advice: "ビタミンC補給に最強の副菜。オイルと一緒に摂ることでビタミンA・Eの吸収率も上がります。"
-                }
+                steps: [ "玉ねぎ、にんにくをみじん切りにし、電子レンジ600Wで1分半加熱する。", "1にオリーブオイル、塩を入れ混ぜてネギ塩オイルを作る。", "ブロッコリーを一口大に切り、豆腐とネギ塩オイルの1/3量を袋に入れ揉み込む。", "皿に盛り付け、ネギ塩オイルをお好みで少しのせ、ブラックペッパーをかけて完成。" ],
+                nutrition: { calories: "約280 kcal", pfc: "P:9.0g / F:24.0g / C:5.0g", nutrients: ["ビタミンC: 約120mg（これ1食で1日分クリア）", "マグネシウム: 豆腐由来"], advice: "ビタミンC補給に最強の副菜。オイルと一緒に摂ることでビタミンA・Eの吸収率も上がります。" }
             },
             { id: 18, title: "サバ缶とほうれん草の卵とじ", subtitle: "カロリー過多な食生活をリセット", servings: "2人分", time: "15分",
                 description: "サバ缶とほうれん草を卵で優しくとじるヘルシーな一品。正月太りなど、食生活をリセットしたい時に最適。",
@@ -399,19 +263,8 @@
                     { name: "水", amount: "50cc" }, { name: "出汁パック", amount: "1袋" }, { name: "みりん", amount: "大さじ 1" }, 
                     { name: "醤油", amount: "大さじ 1" }
                 ],
-                steps: [
-                    "卵を溶く。",
-                    "底の広めの鍋に水、出汁パックの中身、みりん、サバ缶の水分を入れて中火にかける。",
-                    "沸騰したら醤油、冷凍ほうれん草を加え、ほうれん草が溶けたら鯖の身をほぐしながら入れる。",
-                    "溶き卵を半量回し入れ、卵が固まってきたら残りの半量を加えて火を止める。",
-                    "1〜2分置いて卵が半熟になったら完成。"
-                ],
-                nutrition: {
-                calories: "約473 kcal",
-                pfc: "P:47.7g / F:28.0g / C:5.0g",
-                nutrients: ["ビタミンD: 10µg以上（非常に多い・免疫力UP）", "DHA/EPA: 1500mg以上（脳・血管の健康）", "鉄分: ほうれん草由来"],
-                advice: "高タンパク・低糖質・良質な脂質が揃った、ダイエットや筋トレ中に最もおすすめできるメニューです。"
-                }
+                steps: [ "卵を溶く。", "底の広めの鍋に水、出汁パックの中身、みりん、サバ缶の水分を入れて中火にかける。", "沸騰したら醤油、冷凍ほうれん草を加え、ほうれん草が溶けたら鯖の身をほぐしながら入れる。", "溶き卵を半量回し入れ、卵が固まってきたら残りの半量を加えて火を止める。", "1〜2分置いて卵が半熟になったら完成。" ],
+                nutrition: { calories: "約473 kcal", pfc: "P:47.7g / F:28.0g / C:5.0g", nutrients: ["ビタミンD: 10µg以上（非常に多い・免疫力UP）", "DHA/EPA: 1500mg以上（脳・血管の健康）", "鉄分: ほうれん草由来"], advice: "高タンパク・低糖質・良質な脂質が揃った、ダイエットや筋トレ中に最もおすすめできるメニューです。" }
             },
             { id: 19, title: "豚しょうが焼", subtitle: "ご飯が止まらない王道の味", servings: "1〜2人分", time: "15分",
                 description: "豚肉と玉ねぎの甘辛いタレが絡む、家庭料理の定番。味の素で旨味を底上げした、ご飯が進む一品です。",
@@ -421,46 +274,19 @@
                     { name: "酒", amount: "大さじ2" }, { name: "みりん", amount: "大さじ2" }, { name: "醤油", amount: "大さじ1.5" },
                     { name: "砂糖", amount: "小さじ1.5" }, { name: "味の素", amount: "4振り" }
                 ],
-                steps: [
-                    "ボウルに酒、みりん、醤油、砂糖、生姜、味の素を入れ、よく混ぜてタレを作る。",
-                    "玉ねぎを薄切りにする。",
-                    "フライパンに油（分量外）をひき、豚肉と玉ねぎを炒める。",
-                    "肉と玉ねぎに火が通ったらタレを加え、煮詰めながら全体によく絡める。"
-                ],
-                nutrition: {
-                calories: "約600 kcal",
-                pfc: "P:40.0g / F:35.0g / C:30.0g",
-                nutrients: ["ビタミンB1: 豚肉由来（疲労回復）", "アリシン: 玉ねぎ由来"],
-                advice: "豚肉のビタミンB1と玉ねぎのアリシンで疲労回復効果が抜群です。キャベツの千切りを添えると消化も助けます。"
-                }
+                steps: [ "ボウルに酒、みりん、醤油、砂糖、生姜、味の素を入れ、よく混ぜてタレを作る。", "玉ねぎを薄切りにする。", "フライパンに油（分量外）をひき、豚肉と玉ねぎを炒める。", "肉と玉ねぎに火が通ったらタレを加え、煮詰めながら全体によく絡める。" ],
+                nutrition: { calories: "約600 kcal", pfc: "P:40.0g / F:35.0g / C:30.0g", nutrients: ["ビタミンB1: 豚肉由来（疲労回復）", "アリシン: 玉ねぎ由来"], advice: "豚肉のビタミンB1と玉ねぎのアリシンで疲労回復効果が抜群です。キャベツの千切りを添えると消化も助けます。" }
             },
             { id: 20, title: "ケールとトマトサラダ", subtitle: "ビタミン爆弾！美肌サラダ", servings: "1〜2人分", time: "10分",
                 description: "栄養価の王様ケールとトマトを使ったホットサラダ風の一品。加熱したトマトのリコピンとオリーブオイルの組み合わせで吸収率アップ。",
                 image: "./ke-rutotomatosalada.png",
                 ingredients: [
-                    { name: "ケール", amount: "100g" },
-                    { name: "ミニトマト", amount: "6個" },
-                    { name: "塩", amount: "0.5g" },
-                    { name: "レモン果汁", amount: "小さじ1/2" },
-                    { name: "マスタード", amount: "小さじ1" },
-                    { name: "オリーブオイル", amount: "小さじ1.5" },
-                    { name: "チーズ", amount: "適量" },
-                    { name: "ブラックペッパー", amount: "適量" }
+                    { name: "ケール", amount: "100g" }, { name: "ミニトマト", amount: "6個" }, { name: "塩", amount: "0.5g" },
+                    { name: "レモン果汁", amount: "小さじ1/2" }, { name: "マスタード", amount: "小さじ1" },
+                    { name: "オリーブオイル", amount: "小さじ1.5" }, { name: "チーズ", amount: "適量" }, { name: "ブラックペッパー", amount: "適量" }
                 ],
-                steps: [
-                    "ミニトマトをヘタに対して水平に半分に切る。",
-                    "ボウルにミニトマトを入れ、電子レンジ(600W)で30秒加熱する。",
-                    "同じボウルにマスタード、レモン果汁、オリーブオイル、塩を加えてトマトとよく混ぜ合わせる。",
-                    "ケールの茎と葉を分け、葉は一口大に、茎は小口切りにする。",
-                    "ボウルにケールを加えてよく和える。",
-                    "器に盛り付け、チーズとブラックペッパーをかけて完成。"
-                ],
-                nutrition: {
-                    calories: "約145 kcal",
-                    pfc: "P:6.0g / F:8.5g / C:12.0g",
-                    nutrients: ["ビタミンC: 非常に豊富", "ビタミンK: ケール由来", "リコピン: 加熱で吸収率UP"],
-                    advice: "ケールは「野菜の王様」と呼ばれるほど栄養豊富。オイルと一緒に摂ることで脂溶性ビタミン（A, K）の吸収率が高まります。"
-                }
+                steps: [ "ミニトマトをヘタに対して水平に半分に切る。", "ボウルにミニトマトを入れ、電子レンジ(600W)で30秒加熱する。", "同じボウルにマスタード、レモン果汁、オリーブオイル、塩を加えてトマトとよく混ぜ合わせる。", "ケールの茎と葉を分け、葉は一口大に、茎は小口切りにする。", "ボウルにケールを加えてよく和える。", "器に盛り付け、チーズとブラックペッパーをかけて完成。" ],
+                nutrition: { calories: "約145 kcal", pfc: "P:6.0g / F:8.5g / C:12.0g", nutrients: ["ビタミンC: 非常に豊富", "ビタミンK: ケール由来", "リコピン: 加熱で吸収率UP"], advice: "ケールは「野菜の王様」と呼ばれるほど栄養豊富。オイルと一緒に摂ることで脂溶性ビタミン（A, K）の吸収率が高まります。" }
             }
         ];
 
@@ -512,36 +338,37 @@
                 }
 
                 return [...result].sort((a, b) => {
-                    // お気に入りを最優先
-                    const isFavA = favorites.has(a.id);
-                    const isFavB = favorites.has(b.id);
-                    if (isFavA && !isFavB) return -1;
-                    if (!isFavA && isFavB) return 1;
+                    // 1. 「お気に入り順」が選択されている場合のみ、お気に入りを最上位へ
+                    if (sortType === 'favorite') {
+                        const isFavA = favorites.has(a.id);
+                        const isFavB = favorites.has(b.id);
+                        if (isFavA && !isFavB) return -1;
+                        if (!isFavA && isFavB) return 1;
+                        return a.id - b.id; // お気に入り同士、非お気に入り同士はID順
+                    }
 
-                    // その後のソートロジック
+                    // 2. その他のソート（お気に入りの有無は無視して純粋にスコアで並べる）
                     if (sortType === 'vitamin') {
                         const scoreA = getVitaminScore(a);
                         const scoreB = getVitaminScore(b);
                         if (scoreA !== scoreB) return scoreB - scoreA;
-                        return a.id - b.id; 
                     } else if (sortType === 'protein') {
                         const proA = getProteinAmount(a);
                         const proB = getProteinAmount(b);
                         if (proA !== proB) return proB - proA;
-                        return a.id - b.id;
                     } else if (sortType === 'access') {
                         const countA = accessCounts[a.id] || 0;
                         const countB = accessCounts[b.id] || 0;
                         if (countA !== countB) return countB - countA;
-                        return a.id - b.id;
                     }
-                    return 0;
+                    
+                    return a.id - b.id; // デフォルトはID順
                 });
 
             }, [searchTerm, recipes, sortType, accessCounts, favorites]);
 
             const getRankIcon = (index) => {
-                if (searchTerm) return null; 
+                if (searchTerm || sortType === 'favorite') return null; 
                 if (index === 0) return <span className="text-xl">🥇</span>;
                 if (index === 1) return <span className="text-xl">🥈</span>;
                 if (index === 2) return <span className="text-xl">🥉</span>;
@@ -558,25 +385,20 @@
                             </h1>
                         </div>
                         
+                        {/* ソートボタン（横スクロール対応） */}
                         <div className="flex justify-center">
-                            <div className="inline-flex bg-stone-800 rounded-lg p-1 border border-stone-700 shadow-lg">
-                                <button
-                                    onClick={() => setSortType('vitamin')}
-                                    className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors ${sortType === 'vitamin' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}
-                                >
-                                    <Zap size={14} /> ビタミン順
+                            <div className="inline-flex bg-stone-800 rounded-lg p-1 border border-stone-700 shadow-lg overflow-x-auto max-w-full no-scrollbar">
+                                <button onClick={() => setSortType('favorite')} className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors ${sortType === 'favorite' ? 'bg-pink-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}>
+                                    <Heart size={14} /> お気に入り
                                 </button>
-                                <button
-                                    onClick={() => setSortType('protein')}
-                                    className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors ${sortType === 'protein' ? 'bg-red-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}
-                                >
-                                    <Dumbbell size={14} /> タンパク質順
+                                <button onClick={() => setSortType('vitamin')} className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors ${sortType === 'vitamin' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}>
+                                    <Zap size={14} /> ビタミン
                                 </button>
-                                <button
-                                    onClick={() => setSortType('access')}
-                                    className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors ${sortType === 'access' ? 'bg-blue-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}
-                                >
-                                    <Eye size={14} /> よく使う順
+                                <button onClick={() => setSortType('protein')} className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors ${sortType === 'protein' ? 'bg-red-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}>
+                                    <Dumbbell size={14} /> タンパク質
+                                </button>
+                                <button onClick={() => setSortType('access')} className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors ${sortType === 'access' ? 'bg-blue-600 text-white' : 'text-stone-400 hover:text-stone-200'}`}>
+                                    <Eye size={14} /> よく使う
                                 </button>
                             </div>
                         </div>
@@ -602,23 +424,25 @@
                                         onClick={() => onRecipeSelect(recipe.id)}
                                         className="w-full bg-stone-800/50 hover:bg-stone-700/80 active:bg-stone-700 text-left p-4 rounded-xl border border-stone-700/50 flex items-center gap-4 transition-all relative overflow-hidden"
                                     >
+                                        {/* お気に入りマーク (左上) */}
                                         {isFav && (
                                             <div className="absolute top-0 left-0 bg-pink-500/20 p-1 rounded-br-lg border-b border-r border-pink-500/30">
                                                 <Heart size={12} fill="#ec4899" className="text-pink-500" />
                                             </div>
                                         )}
                                         
-                                        {sortType === 'vitamin' && getVitaminScore(recipe) > 0 && !isFav && (
+                                        {/* 各種バッジ (右上) - お気に入りソート以外で表示 */}
+                                        {sortType === 'vitamin' && getVitaminScore(recipe) > 0 && (
                                             <div className="absolute top-0 right-0 bg-amber-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-amber-500/20 text-[10px] text-amber-400 font-bold flex items-center gap-1">
                                                 <Zap size={10}/> Vitamin Rich
                                             </div>
                                         )}
-                                        {sortType === 'protein' && !isFav && (
+                                        {sortType === 'protein' && (
                                             <div className="absolute top-0 right-0 bg-red-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-red-500/20 text-[10px] text-red-400 font-bold flex items-center gap-1">
                                                 <Dumbbell size={10}/> P: {getProteinAmount(recipe)}g
                                             </div>
                                         )}
-                                        {sortType === 'access' && (accessCounts[recipe.id] || 0) > 0 && !isFav && (
+                                        {sortType === 'access' && (accessCounts[recipe.id] || 0) > 0 && (
                                             <div className="absolute top-0 right-0 bg-blue-500/10 px-2 py-0.5 rounded-bl-lg border-l border-b border-blue-500/20 text-[10px] text-blue-400 font-bold flex items-center gap-1">
                                                 <Eye size={10}/> {accessCounts[recipe.id]}回
                                             </div>
@@ -644,13 +468,13 @@
                                         </div>
                                     </button>
                                     
-                                    {/* お気に入りボタン (リスト上) */}
+                                    {/* お気に入り登録ボタン (リスト右下) */}
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onToggleFavorite(recipe.id);
                                         }}
-                                        className="absolute bottom-4 right-4 p-2 text-stone-500 hover:text-pink-500 transition-colors z-10"
+                                        className="absolute bottom-4 right-4 p-2 text-stone-600 hover:text-pink-500 transition-colors z-10"
                                     >
                                         <Heart 
                                             size={20} 
@@ -897,7 +721,7 @@
                             rel="noopener noreferrer"
                             className="block w-full text-center py-3 bg-stone-200 text-stone-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-stone-300 transition-colors active:scale-95"
                         >
-                            <Mail size={14} /> アプリ・レシピの感想を送る
+                            <MessageSquare size={14} /> アプリ・レシピの感想を送る
                         </a>
 
                     </div>
@@ -911,7 +735,7 @@
             const [images, setImages] = useState({});
             const [loading, setLoading] = useState(true);
             const [searchTerm, setSearchTerm] = useState('');
-            const [sortType, setSortType] = useState('vitamin'); 
+            const [sortType, setSortType] = useState('favorite'); // デフォルトをお気に入り順に
             const [accessCounts, setAccessCounts] = useState({}); 
             const [memos, setMemos] = useState({}); 
             const [favorites, setFavorites] = useState(new Set());
@@ -925,7 +749,7 @@
                     if (isSharedMode) {
                         setImages(PRELOADED_IMAGES);
                     } else {
-                        const savedImages = localStorage.getItem('recipeImages_v2'); // キーを変更
+                        const savedImages = localStorage.getItem(STORAGE_KEY_IMAGES);
                         if (savedImages) {
                             setImages(JSON.parse(savedImages));
                         } else {
@@ -937,17 +761,17 @@
                         }
                     }
 
-                    const savedCounts = localStorage.getItem('recipeAccessCounts');
+                    const savedCounts = localStorage.getItem(STORAGE_KEY_ACCESS);
                     if (savedCounts) {
                         setAccessCounts(JSON.parse(savedCounts));
                     }
 
-                    const savedMemos = localStorage.getItem('recipeMemos');
+                    const savedMemos = localStorage.getItem(STORAGE_KEY_MEMOS);
                     if (savedMemos) {
                         setMemos(JSON.parse(savedMemos));
                     }
 
-                    const savedFavorites = localStorage.getItem('recipeFavorites');
+                    const savedFavorites = localStorage.getItem(STORAGE_KEY_FAVS);
                     if (savedFavorites) {
                         setFavorites(new Set(JSON.parse(savedFavorites)));
                     }
@@ -965,7 +789,7 @@
                     setImages(prevImages => {
                         const newImages = { ...prevImages, [id]: base64Url };
                         if (!isSharedMode) {
-                            localStorage.setItem('recipeImages_v2', JSON.stringify(newImages));
+                            localStorage.setItem(STORAGE_KEY_IMAGES, JSON.stringify(newImages));
                         }
                         return newImages;
                     });
@@ -978,13 +802,12 @@
                 setMemos(prev => {
                     const newMemos = { ...prev, [id]: text };
                     if (!isSharedMode) {
-                        localStorage.setItem('recipeMemos', JSON.stringify(newMemos));
+                        localStorage.setItem(STORAGE_KEY_MEMOS, JSON.stringify(newMemos));
                     }
                     return newMemos;
                 });
             };
 
-            // お気に入り切り替えハンドラ
             const handleToggleFavorite = (id) => {
                 setFavorites(prev => {
                     const newFavs = new Set(prev);
@@ -994,7 +817,7 @@
                         newFavs.add(id);
                     }
                     if (!isSharedMode) {
-                        localStorage.setItem('recipeFavorites', JSON.stringify([...newFavs]));
+                        localStorage.setItem(STORAGE_KEY_FAVS, JSON.stringify([...newFavs]));
                     }
                     return newFavs;
                 });
@@ -1061,7 +884,7 @@
                 setAccessCounts(prev => {
                     const newCounts = { ...prev, [id]: (prev[id] || 0) + 1 };
                     if (!isSharedMode) {
-                        localStorage.setItem('recipeAccessCounts', JSON.stringify(newCounts));
+                        localStorage.setItem(STORAGE_KEY_ACCESS, JSON.stringify(newCounts));
                     }
                     return newCounts;
                 });
