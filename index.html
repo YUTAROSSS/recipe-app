@@ -17,7 +17,7 @@
         html { scroll-behavior: smooth; }
     </style>
 
-    <!-- React & アイコンライブラリの読み込み設定 -->
+    <!-- React & アイコンライブラリ -->
     <script type="importmap">
         {
             "imports": {
@@ -28,7 +28,7 @@
         }
     </script>
     
-    <!-- JSXをブラウザで動かすためのBabel -->
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
@@ -44,15 +44,16 @@
         const PRELOADED_IMAGES = null; 
         // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-        // ★★★ Googleフォーム設定 ★★★
-        const GOOGLE_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; 
+        // ★★★ フォームURL設定 ★★★
+        const RECRUIT_FORM_URL = "https://forms.gle/ShKJWzEqkqYwe6NP7"; // レシピ募集用
+        const FEEDBACK_FORM_URL = "https://forms.gle/vxxkemvB3fTbaBo37"; // 感想・フィードバック用
         // ★★★★★★★★★★★★★★★★★
 
         // --- レシピデータ ---
         const initialRecipes = [
             { id: 1, title: "夏野菜丼", subtitle: "夏バテ対策・野菜の旨み", servings: "1人分", time: "35分",
                 description: "トマト、オクラ、ミョウガなど夏野菜をたっぷり使用。生姜の効いたタレで夏バテ防止にぴったり。",
-                image: null,
+                image: "./natuyasaidon.png",
                 ingredients: [
                 { name: "トマト", amount: "100g" }, { name: "大葉", amount: "2枚 (1.5g)" }, { name: "生姜", amount: "5g" }, 
                 { name: "オクラ", amount: "2本 (20g)" }, { name: "ミョウガ", amount: "1/2個 (8g)" }, { name: "塩", amount: "2g (小さじ1/3程度)" }, 
@@ -71,6 +72,7 @@
             },
             { id: 2, title: "秋の味覚丼", subtitle: "秋しらすとキノコで味わう", servings: "2人分", time: "20分",
                 description: "秋しらすとキノコの旨みたっぷり。オリーブオイルとレモンでさっぱりと仕上げた季節の一品です。",
+                image: "./akinomikakudon.png",
                 ingredients: [
                 { name: "トマト", amount: "1個 (150g)" }, { name: "マッシュルーム", amount: "60g" }, { name: "釜揚げしらす", amount: "60g" }, 
                 { name: "板海苔", amount: "1枚" }, { name: "ごはん", amount: "300g" },
@@ -91,6 +93,7 @@
             },
             { id: 3, title: "鶏ももとトマトのチョコ煮込み", subtitle: "水を一切使わない濃厚な味わい", servings: "2-3人分", time: "50分 (炊飯器)",
                 description: "炊飯器におまかせ。トマトの水分だけで煮込む濃厚シチュー。隠し味のチョコと味噌がポイント。",
+                image: "./torimomochoconikomi.png",
                 ingredients: [
                 { name: "トマト", amount: "3個 (500g)" }, { name: "鶏モモ肉", amount: "1枚 (250g)" }, { name: "玉ねぎ", amount: "1/2個 (100g)" }, 
                 { name: "ジャガイモ", amount: "100g" }, { name: "マッシュルーム", amount: "100g" }, { name: "にんにく", amount: "1片 (5g)" }, 
@@ -112,6 +115,7 @@
             },
             { id: 4, title: "ポトフ", subtitle: "高栄養密度・体温まる", servings: "4食分", time: "40分",
                 description: "鶏肉とたっぷりの野菜で満足感のある一皿。素材の旨味が溶け出したスープは、寒い季節にぴったりです。",
+                image: "./potohu.png",
                 ingredients: [
                 { name: "鶏もも肉", amount: "600g" }, { name: "バター", amount: "20g" }, { name: "ホールトマト", amount: "1缶 (400g)" }, 
                 { name: "さつまいも", amount: "200g" }, { name: "エリンギ・舞茸", amount: "計180g" }, { name: "ブラウンマッシュルーム", amount: "1パック (150g)" }, 
@@ -133,6 +137,7 @@
             },
             { id: 5, title: "豚キャベツレンチン蒸し", subtitle: "簡単！やみつき白だし味", servings: "2人分", time: "10分",
                 description: "豚バラとキャベツをタッパーに入れてレンジで加熱するだけの超時短レシピ。白だしとごま油で風味豊かに。",
+                image: "./butakyabetu.png",
                 ingredients: [
                     { name: "キャベツ", amount: "200g" }, { name: "豚バラ", amount: "150g" }, { name: "白だし", amount: "大さじ 1.5" }, 
                     { name: "ごま油", amount: "大さじ 0.5" }, { name: "にんにく", amount: "1片" }, { name: "片栗粉", amount: "小さじ 1" }, 
@@ -152,6 +157,7 @@
             },
             { id: 6, title: "りゅうじのナポリタン", subtitle: "ポークチャップ風の濃厚ソース", servings: "1人分", time: "25分",
                 description: "ケチャップを煮詰めて作る、昔ながらのポークチャップ風濃厚ナポリタン。",
+                image: "./naporitan.png",
                 ingredients: [
                     { name: "パスタ", amount: "100g" }, { name: "マッシュルーム", amount: "50g" }, { name: "ウインナー", amount: "50g" }, 
                     { name: "玉ねぎ", amount: "50g (1/3個)" }, { name: "ピーマン", amount: "1/3個" }, { name: "ケチャップ", amount: "大さじ 4" }, 
@@ -174,6 +180,7 @@
             },
             { id: 7, title: "ゆかりバターパスタ", subtitle: "簡単！和風あっさり味", servings: "2人分", time: "15分",
                 description: "ゆかりとバター、醤油で仕上げるシンプルな和風パスタ。茹で汁を飛ばしながら煮詰めるのがポイント。",
+                image: "./yukaributterpasta.png",
                 ingredients: [
                     { name: "パスタ", amount: "200g" }, { name: "バター", amount: "20g" }, { name: "水", amount: "530cc" }, 
                     { name: "醤油", amount: "大さじ 1" }, { name: "味の素", amount: "4振り" }, { name: "にんにく (おろし)", amount: "1片" }, 
@@ -193,6 +200,7 @@
             },
             { id: 8, title: "レタスサラダ", subtitle: "めんつゆベースのやみつきドレッシング", servings: "2人分", time: "5分",
                 description: "めんつゆとごま油ベースで簡単に作れる、レタスの消費に最適なやみつきサラダ。",
+                image: "./retasusalada.png",
                 ingredients: [
                     { name: "レタス", amount: "150g" }, { name: "めんつゆ", amount: "大さじ 1" }, { name: "砂糖", amount: "大さじ 1" }, 
                     { name: "ごま油", amount: "大さじ 1" }, { name: "のり", amount: "適量" }, { name: "白ごま", amount: "適量" }, { name: "塩", amount: "適量" }
@@ -210,6 +218,7 @@
             },
             { id: 9, title: "りゅうじのカルボナーラ", subtitle: "水とチーズで煮込む濃厚パスタ", servings: "1人分", time: "20分",
                 description: "水と少量のチーズで煮込んで作る、濃厚でクリーミーなワンパンカルボナーラ。",
+                image: "./karubona-ra.png",
                 ingredients: [
                     { name: "にんにく", amount: "1片" }, { name: "ベーコン", amount: "35g" }, { name: "オリーブオイル", amount: "大さじ 1" }, 
                     { name: "水", amount: "350cc" }, { name: "塩", amount: "小さじ 1/3" }, { name: "味の素", amount: "4振り" }, 
@@ -231,6 +240,7 @@
             },
             { id: 11, title: "やみつき鶏", subtitle: "ピリ辛甘辛ダレでご飯が進む", servings: "2人分", time: "15分",
                 description: "タバスコの隠し味と甘辛いタレが食欲をそそる、ご飯にもおつまみにも最適な鶏もも肉料理。",
+                image: "./yamitukidori.png",
                 ingredients: [
                     { name: "もも肉", amount: "320g" }, { name: "片栗粉", amount: "大さじ 1.5" }, { name: "バター", amount: "15g" }, 
                     { name: "砂糖", amount: "大さじ 1" }, { name: "ケチャップ", amount: "大さじ 1" }, { name: "醤油", amount: "大さじ 1" }, 
@@ -251,6 +261,7 @@
             },
             { id: 12, title: "豚ミンチチャーハン", subtitle: "ネギ油とオイスターソースが決め手", servings: "2人分", time: "20分",
                 description: "ネギ油と豚ミンチ、オイスターソースの旨味を効かせた、プロ級の本格チャーハン。",
+                image: "./butamintitya-han.png",
                 ingredients: [
                     { name: "ご飯", amount: "200g" }, { name: "豚こま (またはミンチ)", amount: "50g" }, { name: "長ネギ (みじん切り)", amount: "25g" }, 
                     { name: "長ネギ (青い部分)", amount: "15g" }, { name: "卵", amount: "2個" }, { name: "油 (ラード)", amount: "大さじ 2" }, 
@@ -272,6 +283,7 @@
             },
             { id: 13, title: "卵丼", subtitle: "鰹節と玉ねぎで簡単に煮込む", servings: "1人分", time: "15分",
                 description: "玉ねぎと鰹節の出汁が効いた、シンプルで優しい味わいの卵丼。",
+                image: "./tamagodon.png",
                 ingredients: [
                     { name: "ご飯", amount: "200g" }, { name: "鰹節粉", amount: "3g" }, { name: "玉ねぎ", amount: "1/4個 (60g)" }, 
                     { name: "醤油", amount: "大さじ 1" }, { name: "みりん", amount: "大さじ 2" }, { name: "水", amount: "大さじ 2" }, 
@@ -291,6 +303,7 @@
             },
             { id: 14, title: "豚大根", subtitle: "豚ミンチの旨み煮込み", servings: "4人分", time: "50分 (炊飯器)",
                 description: "豚ミンチと大根を炊飯器で煮込む簡単レシピ。味噌と生姜が効いたつゆだくの濃厚な味わい。",
+                image: "./butadaikon.png",
                 ingredients: [
                     { name: "大根", amount: "800g" }, { name: "豚ミンチ", amount: "200g" }, { name: "にんにく (みじん)", amount: "1片 5g" }, 
                     { name: "しょうが (みじん)", amount: "1片 15g" }, { name: "長ネギ (みじん)", amount: "20g" }, { name: "味噌", amount: "大さじ 1/2" }, 
@@ -312,6 +325,7 @@
             },
             { id: 15, title: "だし巻き卵（甘口・関東風）", subtitle: "みりん砂糖で甘めに仕上げる", servings: "1人分", time: "10分",
                 description: "みりんや砂糖を加えて甘めに仕上げる、お弁当にもぴったりのふっくらしただし巻き卵です。",
+                image: "./kantohudasimaki.png",
                 ingredients: [
                     { name: "卵", amount: "2個" }, { name: "水", amount: "50cc" }, { name: "塩", amount: "小さじ 1/4" }, 
                     { name: "みりん", amount: "小さじ 1.5" }, { name: "砂糖", amount: "ひとつまみ" }, { name: "白だし", amount: "大さじ 1" }
@@ -329,6 +343,7 @@
             },
             { id: 16, title: "だし巻き卵（白だし・関西風）", subtitle: "出汁の風味を効かせた塩味", servings: "1人分", time: "10分",
                 description: "白だしと鰹節粉を使い、出汁の風味を強調した、上品な味わいの塩味のだし巻き卵です。",
+                image: "./kansaihudasimaki.png",
                 ingredients: [
                     { name: "卵", amount: "3個" }, { name: "水", amount: "110cc" }, { name: "醤油", amount: "小さじ 1/3" }, 
                     { name: "味の素", amount: "4振り" }, { name: "砂糖", amount: "2つまみ" }, { name: "鰹節粉", amount: "3g" }
@@ -346,6 +361,7 @@
             },
             { id: 17, title: "豆腐とブロッコリーの揉み込みサラダ", subtitle: "超簡単！植物性タンパク質が豊富", servings: "2人分", time: "15分",
                 description: "豆腐の柔らかさと生ブロッコリーの歯ごたえが楽しいサラダ。ネギ塩オイルで和えることで満足度を上げます。",
+                image: "./burokkorisiraae.png",
                 ingredients: [
                     { name: "豆腐", amount: "100g" }, { name: "ブロッコリー", amount: "100g" }, { name: "ネギ塩オイル", amount: "お好み" },
                     { name: "玉ねぎ", amount: "1/4個" }, { name: "にんにく", amount: "1片" }, { name: "オリーブオイル", amount: "50cc" },
@@ -366,6 +382,7 @@
             },
             { id: 18, title: "サバ缶とほうれん草の卵とじ", subtitle: "カロリー過多な食生活をリセット", servings: "2人分", time: "15分",
                 description: "サバ缶とほうれん草を卵で優しくとじるヘルシーな一品。正月太りなど、食生活をリセットしたい時に最適。",
+                image: "./hourensotosabakannotamagotoji.png",
                 ingredients: [
                     { name: "サバ缶", amount: "1缶" }, { name: "冷凍ほうれん草", amount: "100g" }, { name: "卵", amount: "2個" }, 
                     { name: "水", amount: "50cc" }, { name: "出汁パック", amount: "1袋" }, { name: "みりん", amount: "大さじ 1" }, 
@@ -387,7 +404,7 @@
             },
             { id: 19, title: "豚しょうが焼", subtitle: "ご飯が止まらない王道の味", servings: "1〜2人分", time: "15分",
                 description: "豚肉と玉ねぎの甘辛いタレが絡む、家庭料理の定番。味の素で旨味を底上げした、ご飯が進む一品です。",
-                image: null,
+                image: "./butanosyougayaki.png",
                 ingredients: [
                     { name: "豚肉", amount: "200g" }, { name: "玉ねぎ", amount: "1/2個" }, { name: "生姜（すりおろし）", amount: "適量" },
                     { name: "酒", amount: "大さじ2" }, { name: "みりん", amount: "大さじ2" }, { name: "醤油", amount: "大さじ1.5" },
@@ -405,10 +422,38 @@
                 nutrients: ["ビタミンB1: 豚肉由来（疲労回復）", "アリシン: 玉ねぎ由来"],
                 advice: "豚肉のビタミンB1と玉ねぎのアリシンで疲労回復効果が抜群です。キャベツの千切りを添えると消化も助けます。"
                 }
+            },
+            // ★ 追加されたレシピ ★
+            { id: 20, title: "ケールとトマトサラダ", subtitle: "ビタミン爆弾！美肌サラダ", servings: "1〜2人分", time: "10分",
+                description: "栄養価の王様ケールとトマトを使ったホットサラダ風の一品。加熱したトマトのリコピンとオリーブオイルの組み合わせで吸収率アップ。",
+                image: "./ke-rutotomatosalada.png",
+                ingredients: [
+                    { name: "ケール", amount: "100g" },
+                    { name: "ミニトマト", amount: "6個" },
+                    { name: "塩", amount: "0.5g" },
+                    { name: "レモン果汁", amount: "小さじ1/2" },
+                    { name: "マスタード", amount: "小さじ1" },
+                    { name: "オリーブオイル", amount: "小さじ1.5" },
+                    { name: "チーズ", amount: "適量" },
+                    { name: "ブラックペッパー", amount: "適量" }
+                ],
+                steps: [
+                    "ミニトマトをヘタに対して水平に半分に切る。",
+                    "ボウルにミニトマトを入れ、電子レンジ(600W)で30秒加熱する。",
+                    "同じボウルにマスタード、レモン果汁、オリーブオイル、塩を加えてトマトとよく混ぜ合わせる。",
+                    "ケールの茎と葉を分け、葉は一口大に、茎は小口切りにする。",
+                    "ボウルにケールを加えてよく和える。",
+                    "器に盛り付け、チーズとブラックペッパーをかけて完成。"
+                ],
+                nutrition: {
+                    calories: "約145 kcal",
+                    pfc: "P:6.0g / F:8.5g / C:12.0g",
+                    nutrients: ["ビタミンC: 非常に豊富", "ビタミンK: ケール由来", "リコピン: 加熱で吸収率UP"],
+                    advice: "ケールは「野菜の王様」と呼ばれるほど栄養豊富。オイルと一緒に摂ることで脂溶性ビタミン（A, K）の吸収率が高まります。"
+                }
             }
         ];
 
-        // Helper: Base64 convert
         const fileToBase64 = (file) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -418,7 +463,6 @@
             });
         };
 
-        // Helper: Vitamin Score Calculation
         const getVitaminScore = (recipe) => {
             if (!recipe.nutrition || !recipe.nutrition.nutrients) return 0;
             const nutrients = recipe.nutrition.nutrients.join(" ");
@@ -433,7 +477,6 @@
             return score;
         };
 
-        // Helper: Protein Amount Calculation
         const getProteinAmount = (recipe) => {
             if (!recipe.nutrition || !recipe.nutrition.pfc) return 0;
             const match = recipe.nutrition.pfc.match(/P:([\d\.]+)/);
@@ -586,7 +629,7 @@
 
                     <footer className="mt-8 pt-6 border-t border-stone-800 flex flex-col items-center gap-4">
                         <a
-                            href={GOOGLE_FORM_URL}
+                            href={RECRUIT_FORM_URL}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full sm:w-auto px-6 py-3 rounded-full font-bold flex items-center justify-center gap-2 text-sm border border-dashed border-amber-700/50 text-amber-600 hover:bg-amber-950/20 transition-all active:scale-95"
@@ -623,7 +666,13 @@
                 }
             };
 
-            const hasImage = currentImage && (currentImage.startsWith('data:image') || currentImage.startsWith('uploaded:'));
+            // 画像URLの判定ロジック
+            const hasImage = currentImage && (
+                currentImage.startsWith('data:image') || 
+                currentImage.startsWith('uploaded:') || 
+                currentImage.startsWith('./') || 
+                currentImage.startsWith('http')
+            );
 
             return (
                 <div id={idPrefix} className="bg-stone-50 rounded-xl overflow-hidden shadow-xl w-full max-w-sm sm:max-w-none sm:w-72 flex flex-col transition-transform duration-300 mx-auto scroll-mt-4">
@@ -778,7 +827,9 @@
                         </div>
 
                         <a 
-                            href={`mailto:ydrg.job@gmail.com?subject=レシピ感想: ${recipe.title}&body=【${recipe.title}】についての感想・要望%0D%0A%0D%0A`}
+                            href={FEEDBACK_FORM_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="block w-full text-center py-3 bg-stone-200 text-stone-600 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-stone-300 transition-colors active:scale-95"
                         >
                             <Mail size={14} /> このレシピの感想を送る
@@ -795,15 +846,16 @@
             const [images, setImages] = useState({});
             const [loading, setLoading] = useState(true);
             const [searchTerm, setSearchTerm] = useState('');
-            const [sortType, setSortType] = useState('vitamin');
+            const [sortType, setSortType] = useState('vitamin'); 
             const [accessCounts, setAccessCounts] = useState({}); 
-            const [memos, setMemos] = useState({});
+            const [memos, setMemos] = useState({}); 
             
             const [currentView, setCurrentView] = useState('menu'); 
             const isSharedMode = PRELOADED_IMAGES !== null;
 
             useEffect(() => {
                 try {
+                    // 1. 画像データの読み込み
                     if (isSharedMode) {
                         setImages(PRELOADED_IMAGES);
                     } else {
@@ -819,11 +871,13 @@
                         }
                     }
 
+                    // 2. アクセス数の読み込み
                     const savedCounts = localStorage.getItem('recipeAccessCounts');
                     if (savedCounts) {
                         setAccessCounts(JSON.parse(savedCounts));
                     }
 
+                    // 3. メモの読み込み
                     const savedMemos = localStorage.getItem('recipeMemos');
                     if (savedMemos) {
                         setMemos(JSON.parse(savedMemos));
